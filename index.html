@@ -1329,12 +1329,12 @@
       const totalPending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n > 0 ? s + n : s; }, 0);
       const sorted = [...weekTrips].sort((a, b) => b.date.localeCompare(a.date));
     
-      // For past weeks: detect if unpaid trips cancelled each other out
-      const hasUnpaidTrips = weekTrips.some(t =>
-        (t.role === "passageiro" && !t.paid) ||
-        (t.role === "motorista" && (t.passengers || []).some(p => !p.paid))
-      );
-      const quitadoComCarona = !isCurrentWeek && hasUnpaidTrips && totalOwed === 0 && totalPending === 0;
+      // "Quitado com carona": only true when there ARE gross unpaid amounts on BOTH sides
+      // (I owe someone AND someone owes me) that net to zero — not just an empty week.
+      // Uses driverNet which already has the myId perspective from calcBalances above.
+      const hasGrossIOwe   = Object.values(driverNet).some(dn => dn.iOwe   > dn.iOwePaid);
+      const hasGrossTheyOwe = Object.values(driverNet).some(dn => dn.theyOwe > dn.theyOwePaid);
+      const quitadoComCarona = !isCurrentWeek && hasGrossIOwe && hasGrossTheyOwe && totalOwed === 0 && totalPending === 0;
     
       const weekNum = getWeekNumber(viewWeek);
     
@@ -1359,7 +1359,7 @@
         setPendingEdits(prev => ({
           ...prev,
           [tr.id]: {
-            passengers: (tr.passengers || []).map(p => ({ ...p, price: String(paxPrice(p)) })),
+            passengers: (tr.passengers || []).map(p => ({ ...p, price: String(paxPrice(p)), direction: p.direction || undefined })),
             carGas: String(defCC.gas),
             carToll: String(defCC.toll),
             includeCarCost: false,
@@ -1376,6 +1376,7 @@
             const parsedPax = edit.passengers.map(p => ({
               ...p,
               price: parseFloat(p.price) !== PRICE ? parseFloat(p.price) || undefined : undefined,
+              direction: p.direction || undefined,
             }));
             const carCost = edit.includeCarCost
               ? { gas: parseFloat(edit.carGas) || 0, toll: parseFloat(edit.carToll) || 0, paid: false }
@@ -1443,20 +1444,40 @@
                             </div>
                             {(edit.passengers || []).map((p, i) => {
                               const pp = parseFloat(p.price) || PRICE;
+                              const pDir = p.direction || tr.direction;
+                              const pDirChanged = p.direction && p.direction !== tr.direction;
                               return (
-                                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1A1825", borderRadius: 8, padding: "8px 10px" }}>
-                                  <div style={{ flex: 1, fontSize: 13, color: C.text }}>{p.name}</div>
-                                  <span style={{ fontSize: 12, color: C.muted }}>R$</span>
-                                  <input
-                                    type="number" min="0" step="1"
-                                    value={p.price}
-                                    onChange={e => setPendingEdits(prev => ({
-                                      ...prev,
-                                      [tr.id]: { ...prev[tr.id], passengers: prev[tr.id].passengers.map((px, j) => j === i ? { ...px, price: e.target.value } : px) }
-                                    }))}
-                                    style={{ ...inpS, width: 64, textAlign: "center", borderColor: pp !== PRICE ? C.amber+"66" : C.border }}
-                                  />
-                                  <span style={{ fontSize: 11, color: C.muted }}>{t("stretch_per")}</span>
+                                <div key={p.id} style={{ background: "#1A1825", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                                  <div style={{ fontSize: 13, color: C.text, marginBottom: 8, fontWeight: 500 }}>{p.name}</div>
+                                  <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                                    {[["ida", DIR(lang).ida], ["volta", DIR(lang).volta], ["ambas", lang === "en" ? "Rnd" : "I+V"]].map(([val, lbl2]) => (
+                                      <button key={val} onClick={() => setPendingEdits(prev => ({
+                                        ...prev,
+                                        [tr.id]: { ...prev[tr.id], passengers: prev[tr.id].passengers.map((px, j) =>
+                                          j === i ? { ...px, direction: val === tr.direction && !px.direction ? undefined : val } : px
+                                        )}
+                                      }))} style={{
+                                        flex: 1, background: pDir === val ? (pDirChanged ? C.blue+"33" : C.amberDim) : "transparent",
+                                        color: pDir === val ? (pDirChanged ? C.blue : C.amber) : C.muted,
+                                        border: `1px solid ${pDir === val ? (pDirChanged ? C.blue+"66" : C.amber+"55") : C.border}`,
+                                        borderRadius: 6, padding: "4px 2px", fontSize: 10, fontWeight: pDir === val ? 700 : 400,
+                                        cursor: "pointer", fontFamily: "Barlow, sans-serif",
+                                      }}>{lbl2}</button>
+                                    ))}
+                                  </div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ fontSize: 12, color: C.muted }}>R$</span>
+                                    <input
+                                      type="number" min="0" step="1"
+                                      value={p.price}
+                                      onChange={e => setPendingEdits(prev => ({
+                                        ...prev,
+                                        [tr.id]: { ...prev[tr.id], passengers: prev[tr.id].passengers.map((px, j) => j === i ? { ...px, price: e.target.value } : px) }
+                                      }))}
+                                      style={{ ...inpS, width: 64, textAlign: "center", borderColor: pp !== PRICE ? C.amber+"66" : C.border }}
+                                    />
+                                    <span style={{ fontSize: 11, color: C.muted }}>{t("stretch_per")}</span>
+                                  </div>
                                 </div>
                               );
                             })}
@@ -1700,7 +1721,7 @@
             ...(note.trim() ? { note: note.trim().slice(0, 35) } : {}),
           };
         }
-        const duplicate = st.trips.some(t => t.date === date);
+        const duplicate = st.trips.some(t => t.date === date && !t.pendingConfirmation);
         if (duplicate) {
           setToast(t("add_duplicate"));
           return;
@@ -1847,6 +1868,23 @@
                               placeholder={t("add_pax_name_free_ph")}
                               style={{ ...inp, background: "transparent", border: `1px solid ${C.border}`, marginBottom: 6 }} />
                           )}
+                          {/* Direction per pax */}
+                          <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
+                            {[["ida", t("add_leg_there")], ["volta", t("add_leg_back")], ["ambas", t("round_plus")]].map(([val, lbl2]) => {
+                              const pDir2 = p.direction || dir;
+                              const changed = p.direction && p.direction !== dir;
+                              return (
+                                <button key={val} onClick={() => updPax(p.id, "direction", val === dir && !p.direction ? null : val)}
+                                  style={{
+                                    flex: 1, background: pDir2 === val ? (changed ? C.blue+"33" : C.amberDim) : "transparent",
+                                    color: pDir2 === val ? (changed ? C.blue : C.amber) : C.muted,
+                                    border: `1px solid ${pDir2 === val ? (changed ? C.blue+"66" : C.amber+"55") : C.border}`,
+                                    borderRadius: 7, padding: "5px 2px", fontSize: 11, fontWeight: pDir2 === val ? 700 : 400,
+                                    cursor: "pointer", fontFamily: "Barlow, sans-serif",
+                                  }}>{lbl2}</button>
+                              );
+                            })}
+                          </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <span style={{ fontSize: 12, color: C.muted }}>R$</span>
                             <input type="number" min="0" step="1" value={p.price}
