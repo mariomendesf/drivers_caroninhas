@@ -31,13 +31,12 @@
   <script>
     try {
       firebase.initializeApp({
-        apiKey: "AIzaSyAdZh7DEfxlK1VHyiB_3UOpAM5-eCaf0_0",
-        authDomain: "caroninhas-group.firebaseapp.com",
-        projectId: "caroninhas-group",
-        storageBucket: "caroninhas-group.firebasestorage.app",
-        messagingSenderId: "972351273413",
-        appId: "1:972351273413:web:349ef5744b56cb207b33ac",
-        measurementId: "G-DSZQ3N6LB3"
+        apiKey: "AIzaSyDpn8PRl5oQQcEeocMue6jxWzSjMQP-shg",
+        authDomain: "caroninhas-2cb0b.firebaseapp.com",
+        projectId: "caroninhas-2cb0b",
+        storageBucket: "caroninhas-2cb0b.firebasestorage.app",
+        messagingSenderId: "803353452902",
+        appId: "1:803353452902:web:d2d146472c8d2f76f4a8a7"
       });
       window.__db = firebase.firestore();
       console.log("[caronas] Firebase initialized OK");
@@ -256,6 +255,18 @@
         lock_ph: "Senha", lock_wrong: "Senha incorreta", lock_enter: "Entrar",
         // Loading
         loading: "Carregando…",
+        sign_out: "Trocar perfil",
+        sign_out_confirm: "Você será desconectado. Continuar?",
+        who_are_you: "Quem é você?",
+        who_subtitle: "Selecione seu perfil para entrar.",
+        enter_password: "Digite sua senha",
+        new_trips_badge: (n) => `${n} nova${n !== 1 ? "s" : ""} viagem${n !== 1 ? "ns" : ""} esta semana`,
+        new_trips_btn: "Ver viagens",
+        pending_confirm_title: "Aguardando sua confirmação",
+        pending_confirm_sub: (name) => `Registrada por ${name}`,
+        confirm_btn: "Confirmar",
+        reject_btn: "Recusar",
+        trip_confirmed: "✓ Confirmada",
         all_clear: "Tudo zerado!",
         real_cost: "Custo real",
         save_btn: "Salvar ✓",
@@ -542,9 +553,8 @@
     //  INITIAL STATE
     // ═══════════════════════════════════════════
     const INIT = {
-      done: false,
-      myId: "d1",
-      drivers: Array.from({ length: 5 }, (_, i) => ({ id: `d${i + 1}`, name: "" })),
+      done: true,
+      drivers: GROUP_DRIVERS,
       trips: [],
       carCosts: { gas: DEF_GAS, toll: DEF_TOLL },
       lang: "pt",
@@ -1198,7 +1208,7 @@
     // ═══════════════════════════════════════════
     //  HOME / DASHBOARD
     // ═══════════════════════════════════════════
-    function Home({ st, upd, setTab }) {
+    function Home({ st, upd, setTab, myId }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const thisWeek = getMonday(todayStr());
@@ -1220,8 +1230,67 @@
     
       const weekNum = getWeekNumber(viewWeek);
     
+      // Mark as seen when Home mounts
+      useEffect(() => {
+        localStorage.setItem(LAST_SEEN_KEY(myId), String(Date.now()));
+      }, []);
+    
+      // New trips this week added by others involving me
+      const thisWeekTrips = st.trips.filter(tr => tr.weekStart === thisWeek);
+      const lastSeen = Number(localStorage.getItem(LAST_SEEN_KEY(myId)) || 0);
+    
+      // Pending confirmations for me
+      const pendingTrips = st.trips.filter(tr => tr.pendingConfirmation && tr.driverOwnerId === myId);
+    
+      const confirmTrip = (tripId) => {
+        upd({ ...st, trips: st.trips.map(tr => tr.id === tripId ? { ...tr, pendingConfirmation: false, driverOwnerId: undefined } : tr) });
+      };
+      const rejectTrip = (tripId) => {
+        upd({ ...st, trips: st.trips.filter(tr => tr.id !== tripId) });
+      };
+    
       return (
         <div>
+          {/* Pending confirmations */}
+          {pendingTrips.length > 0 && (
+            <div style={{ padding: "52px 20px 0" }}>
+              <div style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, borderRadius: 14, padding: "14px 16px", marginBottom: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.1, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>
+                  {t("pending_confirm_title")}
+                </div>
+                {pendingTrips.map(tr => {
+                  const registrant = st.drivers.find(d => d.id === tr.registeredBy);
+                  return (
+                    <div key={tr.id} style={{ background: C.card, borderRadius: 10, padding: "12px 14px", marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
+                            <span style={{ color: C.amber, marginRight: 6 }}>{weekday(tr.date, lang)}</span>{fmtFull(tr.date)} · {DIR(lang)[tr.direction]}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
+                            {t("pending_confirm_sub", registrant?.name || tr.registeredBy)}
+                          </div>
+                          {(tr.passengers || []).length > 0 && (
+                            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                              {(tr.passengers || []).map(p => p.name).filter(Boolean).join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => confirmTrip(tr.id)} style={{ flex: 1, background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                          {t("confirm_btn")}
+                        </button>
+                        <button onClick={() => rejectTrip(tr.id)} style={{ flex: 1, background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                          {t("reject_btn")}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {/* Hero header */}
           <div style={{
             padding: "52px 20px 18px",
@@ -1313,13 +1382,13 @@
     // ═══════════════════════════════════════════
     //  ADD TRIP SCREEN
     // ═══════════════════════════════════════════
-    function AddTrip({ st, upd, setTab }) {
+    function AddTrip({ st, upd, setTab, myId }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const [date, setDate] = useState(todayStr());
       const [dir, setDir] = useState("ambas");
-      const [role, setRole] = useState("passageiro");
-      const [driverId, setDriverId] = useState(() => st.drivers.find(d => d.id !== st.myId)?.id || "__other__");
+      const [role, setRole] = useState(myId === ADMIN_ID ? "passageiro" : "motorista");
+      const [driverId, setDriverId] = useState(() => st.drivers.find(d => d.id !== myId)?.id || "__other__");
       const [driverCustomName, setDriverCustomName] = useState("");
       const [paid, setPaid] = useState(false);
       const [tripPriceVal, setTripPriceVal] = useState(String(PRICE));
@@ -1332,7 +1401,7 @@
       const [note, setNote] = useState("");
       const [toast, setToast] = useState(null);
     
-      const others = st.drivers.filter(d => d.id !== st.myId && d.name);
+      const others = st.drivers.filter(d => d.id !== myId && d.name);
       const mult = dir === "ambas" ? 2 : 1;
     
       const addPax = () => { if (pax.length < 4) setPax(prev => [...prev, { id: uid(), name: "", driverId: "", paid: false, price: String(PRICE), direction: null }]); };
@@ -1349,9 +1418,16 @@
         ? (isCustomDriver ? driverCustomName.trim().length > 0 : !!driverId)
         : (pax.some(paxValid) || includeCarCost);
     
+      // For admin: can set another driver as trip owner
+      const [overrideDriver, setOverrideDriver] = useState("");
+    
       const save = () => {
+        const isPendingTrip = myId === ADMIN_ID && role === "motorista" && overrideDriver && overrideDriver !== myId;
         const trip = {
           id: uid(), date, weekStart: getMonday(date), direction: dir, role,
+          createdAt: Date.now(),
+          registeredBy: myId,
+          ...(isPendingTrip ? { pendingConfirmation: true, driverOwnerId: overrideDriver } : {}),
           ...(role === "passageiro"
             ? {
                 ...(isCustomDriver
@@ -1428,12 +1504,30 @@
             <div style={cardS}>
               <label style={lbl}>{t("add_role")}</label>
               <div style={{ display: "flex", gap: 6 }}>
-                <Pill label={t("add_passenger")} active={role === "passageiro"} onClick={() => setRole("passageiro")} />
+                {myId === ADMIN_ID && <Pill label={t("add_passenger")} active={role === "passageiro"} onClick={() => setRole("passageiro")} />}
                 <Pill label={t("add_driver")} active={role === "motorista"} onClick={() => setRole("motorista")} />
               </div>
             </div>
     
             {/* Passageiro: quem dirigiu */}
+            {/* Admin only: register trip for another driver */}
+            {myId === ADMIN_ID && role === "motorista" && (
+              <div style={{ background: C.card, border: `1px solid ${C.amber}33`, borderRadius: 14, padding: "14px 16px", marginBottom: 4 }}>
+                <label style={lbl}>{lang === "en" ? "Drove by" : "Quem dirigiu?"}</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => setOverrideDriver("")} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${!overrideDriver ? C.amber : C.border}`, background: !overrideDriver ? C.amberDim : C.dim, color: !overrideDriver ? C.amber : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: !overrideDriver ? 700 : 400 }}>
+                    {lang === "en" ? "Me (Mário)" : "Eu (Mário)"}
+                  </button>
+                  {st.drivers.filter(d => d.id !== ADMIN_ID && d.name).map(d => (
+                    <button key={d.id} onClick={() => setOverrideDriver(d.id)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${overrideDriver === d.id ? C.amber : C.border}`, background: overrideDriver === d.id ? C.amberDim : C.dim, color: overrideDriver === d.id ? C.amber : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: overrideDriver === d.id ? 700 : 400 }}>
+                      {d.name}
+                    </button>
+                  ))}
+                </div>
+                {overrideDriver && <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>{lang === "en" ? "⚠️ Will require confirmation from that driver." : "⚠️ Aguardará confirmação do motorista."}</div>}
+              </div>
+            )}
+    
             {role === "passageiro" && (
               <div style={cardS}>
                 <label style={lbl}>{t("add_who_drove")}</label>
@@ -1658,7 +1752,7 @@
     // ═══════════════════════════════════════════
     //  SALDOS SCREEN
     // ═══════════════════════════════════════════
-    function Saldos({ st, upd }) {
+    function Saldos({ st, upd, myId }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const [view, setView]     = useState("saldos");   // "saldos" | "extrato"
@@ -2215,7 +2309,7 @@
     // ═══════════════════════════════════════════
     //  HISTORY SCREEN
     // ═══════════════════════════════════════════
-    function Hist({ st, upd }) {
+    function Hist({ st, upd, myId }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const thisWeek = getMonday(todayStr());
@@ -2285,7 +2379,7 @@
     // ═══════════════════════════════════════════
     //  OPCOES SCREEN
     // ═══════════════════════════════════════════
-    function Opcoes({ st, upd }) {
+    function Opcoes({ st, upd, myId, onSignOut }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const [drivers, setDrivers] = useState(st.drivers.length < 5
@@ -2317,8 +2411,9 @@
       const [showDanger, setShowDanger] = useState(false);
       const [dangerPass, setDangerPass] = useState("");
       const [dangerErr, setDangerErr] = useState(false);
-      const clearAll = () => {
-        if (dangerPass === "103467") {
+      const clearAll = async () => {
+        const ok = await checkPassword(dangerPass);
+        if (ok) {
           upd({ ...st, trips: [] });
           setShowDanger(false);
           setDangerPass("");
@@ -2383,37 +2478,26 @@
           </div>
     
           <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={cardS}>
-              <label style={lbl}>{t("drivers_group_label")}</label>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {drivers.map((d, i) => (
-                  <div key={d.id} style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 12, borderBottom: `1px solid ${C.dim}` }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: i === 0 ? C.amberDim : C.dim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
-                        {i === 0 ? "👤" : "🚗"}
-                      </div>
-                      <input
-                        value={d.name} onChange={e => setN(i, e.target.value)}
-                        placeholder={i === 0 ? t("opts_your_name") : t("driver_n_ph", i + 1)}
-                        style={{ ...inp, borderColor: i === 0 ? C.amber + "44" : C.border, padding: "9px 12px", fontSize: 14 }}
-                        disabled={i === 0}
-                      />
-                    </div>
-                    {(i > 0 || true) && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 36 }}>
-                        <span style={{ fontSize: 12, color: C.muted, flexShrink: 0 }}>Pix</span>
-                        <input
-                          value={d.pix || ""} onChange={e => setPix(i, e.target.value)}
-                          placeholder={i === 0 ? t("your_pix_ph") : t("other_pix_ph")}
-                          style={{ ...inp, padding: "7px 12px", fontSize: 13, color: d.pix ? C.text : C.muted }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+            {/* Profile card: show my name + edit my Pix only */}
+            <div style={{ ...cardS, borderColor: C.amber + "44" }}>
+              <label style={lbl}>{lang === "en" ? "My profile" : "Meu perfil"}</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: C.amberDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                  👤
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.amber }}>
+                  {drivers.find(d => d.id === myId)?.name || myId}
+                </div>
               </div>
+              <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Pix</div>
+              <input
+                value={drivers.find(d => d.id === myId)?.pix || ""}
+                onChange={e => setPix(drivers.findIndex(d => d.id === myId), e.target.value)}
+                placeholder={t("your_pix_ph")}
+                style={{ ...inp, padding: "9px 12px", fontSize: 14 }}
+              />
               <button onClick={save} style={{
-                marginTop: 14, background: saved ? C.greenDim : C.amberDim,
+                marginTop: 12, background: saved ? C.greenDim : C.amberDim,
                 color: saved ? C.green : C.amber,
                 border: `1px solid ${saved ? C.green + "44" : C.amber + "44"}`,
                 borderRadius: 9, padding: "10px 0", fontSize: 14, fontWeight: 600,
@@ -2421,6 +2505,22 @@
               }}>
                 {saved ? t("opts_saved") : t("opts_save_drivers")}
               </button>
+            </div>
+    
+            {/* Group drivers list — read only, show pix */}
+            <div style={cardS}>
+              <label style={lbl}>{t("drivers_group_label")}</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {drivers.filter(d => d.id !== myId).map(d => (
+                  <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.dim}` }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: C.dim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🚗</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{d.name}</div>
+                      {d.pix && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Pix: {d.pix}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
     
             <div style={{ ...cardS, borderColor: "#7C5C2E55" }}>
@@ -2526,6 +2626,22 @@
               </div>
             </div>
     
+            {/* Sign out */}
+            <div style={cardS}>
+              <button onClick={() => {
+                if (window.confirm(t("sign_out_confirm"))) {
+                  localStorage.removeItem(`${LOCK_KEY}-${myId}`);
+                  onSignOut();
+                }
+              }} style={{
+                background: C.dim, border: `1px solid ${C.border}`,
+                color: C.muted, borderRadius: 9, padding: "11px 0",
+                fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%", fontFamily: "Barlow, sans-serif",
+              }}>
+                🔓 {t("sign_out")}
+              </button>
+            </div>
+    
             <div style={{ ...cardS, borderColor: C.red + "33" }}>
               <label style={{ ...lbl, color: C.red }}>{t("opts_danger")}</label>
               {!showDanger ? (
@@ -2584,7 +2700,7 @@
     // ═══════════════════════════════════════════
     //  BOTTOM NAV
     // ═══════════════════════════════════════════
-    function Nav({ tab, setTab, lang }) {
+    function Nav({ tab, setTab, lang, myId, trips }) {
       const t = mkT(lang || "pt");
       const items = [
         { id: "home", icon: "🏠", label: t("nav_home") },
@@ -2593,6 +2709,30 @@
         { id: "hist", icon: "📅", label: t("nav_hist") },
         { id: "opts", icon: "⚙️", label: t("nav_opts") },
       ];
+    
+      // Badge: new trips added by others since last visit, involving this driver
+      const lastSeen = Number(localStorage.getItem(LAST_SEEN_KEY(myId)) || 0);
+      const thisWeekStart = getMonday(todayStr());
+      const badgeCount = (trips || []).filter(tr =>
+        tr.weekStart === thisWeekStart &&
+        tr.createdAt > lastSeen &&
+        tr.registeredBy && tr.registeredBy !== myId &&
+        (
+          // I drove this trip
+          (tr.role === "motorista" && (!tr.driverOwnerId || tr.driverOwnerId === myId)) ||
+          // I was a passenger
+          (tr.role === "passageiro" && tr.registeredBy !== myId) ||
+          // I'm listed as passenger in someone's motorista trip
+          (tr.role === "motorista" && (tr.passengers || []).some(p => p.driverId === myId))
+        )
+      ).length;
+    
+      // Also count pending confirmations for me
+      const pendingCount = (trips || []).filter(tr =>
+        tr.pendingConfirmation && tr.driverOwnerId === myId
+      ).length;
+    
+      const totalBadge = badgeCount + pendingCount;
     
       return (
         <div style={{
@@ -2607,8 +2747,22 @@
               flex: 1, background: "none", border: "none",
               padding: "10px 0 12px", cursor: "pointer",
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              position: "relative",
             }}>
-              <div style={{ fontSize: 20 }}>{item.icon}</div>
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <div style={{ fontSize: 20 }}>{item.icon}</div>
+                {item.id === "home" && totalBadge > 0 && (
+                  <div style={{
+                    position: "absolute", top: -4, right: -8,
+                    background: C.red, color: "#fff",
+                    fontSize: 9, fontWeight: 700, borderRadius: 8,
+                    minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 4px", lineHeight: 1,
+                  }}>
+                    {totalBadge}
+                  </div>
+                )}
+              </div>
               <div style={{ fontSize: 9.5, color: tab === item.id ? C.amber : C.muted, fontWeight: tab === item.id ? 700 : 400, letterSpacing: 0.3 }}>
                 {item.label}
               </div>
@@ -2624,91 +2778,173 @@
     // ═══════════════════════════════════════════
     //  LOCK SCREEN
     // ═══════════════════════════════════════════
-    const APP_PASS_HASH = "a72473497ea3df32f02f9ec23a8da80b0cad0f4f42cce2a349592bbc6e5b5de3";
-    const LOCK_KEY = "caroninhas-grupo-unlocked";
+    // Per-driver auth — all start with "0000"
+    const DRIVER_PASS_HASH = "9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0";
+    const LOCK_KEY    = "caroninhas-grupo-unlocked";
+    const MY_ID_KEY   = "caroninhas-grupo-myId";
+    const ADMIN_ID    = "d1"; // Mário — can register any trip
+    const LAST_SEEN_KEY = (dId) => `caroninhas-grupo-lastseen-${dId}`;
+    
+    // Pre-defined group drivers
+    const GROUP_DRIVERS = [
+      { id: "d1", name: "Mário",   pix: "" },
+      { id: "d2", name: "Roberta", pix: "" },
+      { id: "d3", name: "Nice",    pix: "" },
+      { id: "d4", name: "Gabriel", pix: "" },
+      { id: "d5", name: "Rafael",  pix: "" },
+    ];
     
     async function checkPassword(input) {
       const enc = new TextEncoder().encode(input);
       const buf = await crypto.subtle.digest("SHA-256", enc);
       const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-      return hex === APP_PASS_HASH;
+      return hex === DRIVER_PASS_HASH;
     }
     
-    function LockScreen({ onUnlock, lang }) {
+    // DriverSelector: pick who you are, then enter password
+    function DriverSelector({ onUnlock, lang }) {
       const t = mkT(lang || "pt");
+      const [step, setStep] = useState("select"); // "select" | "password"
+      const [selectedId, setSelectedId] = useState(null);
       const [val, setVal] = useState("");
       const [err, setErr] = useState(false);
       const [shake, setShake] = useState(false);
     
+      const driverEmojis = { d1: "👤", d2: "👩", d3: "👩", d4: "👨", d5: "👨" };
+    
+      const selectDriver = (dId) => {
+        setSelectedId(dId);
+        setStep("password");
+        setVal("");
+        setErr(false);
+      };
+    
       const tryUnlock = async () => {
         const ok = await checkPassword(val);
         if (ok) {
-          localStorage.setItem(LOCK_KEY, "1");
-          onUnlock();
+          localStorage.setItem(MY_ID_KEY, selectedId);
+          localStorage.setItem(`${LOCK_KEY}-${selectedId}`, "1");
+          onUnlock(selectedId);
         } else {
           setErr(true);
           setShake(true);
           setVal("");
-          setTimeout(() => setShake(false), 500);
+          setTimeout(() => { setShake(false); setErr(false); }, 600);
         }
       };
     
-      const handleKey = (e) => { if (e.key === "Enter") tryUnlock(); };
+      const selectedDriver = GROUP_DRIVERS.find(d => d.id === selectedId);
     
       return (
-        <div style={{ background: C.bg, height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "Barlow, sans-serif", padding: 32 }}>
+        <div style={{ background: C.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "Barlow, sans-serif", padding: "32px 20px" }}>
           <style>{GCSS}</style>
           <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }`}</style>
-          <div style={{ fontSize: 52, marginBottom: 16 }}>🚗</div>
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 6 }}>Caroninhas</div>
-          <div style={{ color: C.muted, fontSize: 13, marginBottom: 36 }}>Mogi Guaçu ↔ Campinas</div>
-          <div style={{ width: "100%", maxWidth: 280, animation: shake ? "shake 0.4s ease" : "none" }}>
-            <input
-              type="password"
-              value={val}
-              onChange={e => { setVal(e.target.value); setErr(false); }}
-              onKeyDown={handleKey}
-              placeholder={t("opts_delete_pass_ph")}
-              autoFocus
-              style={{
-                width: "100%", background: C.card,
-                border: `1px solid ${err ? C.red : C.border}`,
-                borderRadius: 12, padding: "14px 18px",
-                color: C.text, fontSize: 18, outline: "none",
-                textAlign: "center", letterSpacing: 6,
-                fontFamily: "Barlow, sans-serif",
-              }}
-            />
-            {err && <div style={{ color: C.red, fontSize: 12, textAlign: "center", marginTop: 8 }}>{t("lock_wrong")}</div>}
-            <button onClick={tryUnlock} style={{
-              marginTop: 14, width: "100%",
-              background: C.amber, color: "#000", border: "none",
-              borderRadius: 12, padding: "14px 0",
-              fontSize: 15, fontWeight: 700, cursor: "pointer",
-              fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1, textTransform: "uppercase",
-            }}>
-              Entrar
-            </button>
-          </div>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🚗</div>
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, fontWeight: 700, color: C.text, marginBottom: 4 }}>Caroninhas</div>
+          <div style={{ color: C.amber, fontSize: 13, fontWeight: 600, marginBottom: 32 }}>Grupo</div>
+    
+          {step === "select" && (
+            <div style={{ width: "100%", maxWidth: 320 }}>
+              <div style={{ color: C.muted, fontSize: 13, textAlign: "center", marginBottom: 20 }}>{t("who_subtitle")}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {GROUP_DRIVERS.map(d => (
+                  <button key={d.id} onClick={() => selectDriver(d.id)} style={{
+                    background: C.card, border: `1px solid ${C.border}`,
+                    borderRadius: 14, padding: "14px 18px",
+                    display: "flex", alignItems: "center", gap: 14,
+                    cursor: "pointer", width: "100%", textAlign: "left",
+                  }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 12, background: C.amberDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                      {driverEmojis[d.id] || "🧑"}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 600, color: C.text }}>{d.name}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{lang === "en" ? "Tap to sign in" : "Toque para entrar"}</div>
+                    </div>
+                    <div style={{ marginLeft: "auto", color: C.muted, fontSize: 18 }}>›</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+    
+          {step === "password" && (
+            <div style={{ width: "100%", maxWidth: 300, animation: shake ? "shake 0.4s ease" : "none" }}>
+              <button onClick={() => { setStep("select"); setErr(false); }} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", marginBottom: 20, display: "flex", alignItems: "center", gap: 6, padding: 0, fontFamily: "Barlow, sans-serif" }}>
+                ← {lang === "en" ? "Back" : "Voltar"}
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: C.amberDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+                  {driverEmojis[selectedId] || "🧑"}
+                </div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>{selectedDriver?.name}</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>{t("enter_password")}</div>
+                </div>
+              </div>
+              <input
+                type="password"
+                value={val}
+                onChange={e => { setVal(e.target.value); setErr(false); }}
+                onKeyDown={e => e.key === "Enter" && tryUnlock()}
+                placeholder="••••"
+                autoFocus
+                style={{
+                  width: "100%", background: C.card,
+                  border: `1px solid ${err ? C.red : C.border}`,
+                  borderRadius: 12, padding: "14px 18px",
+                  color: C.text, fontSize: 22, outline: "none",
+                  textAlign: "center", letterSpacing: 8,
+                  fontFamily: "Barlow, sans-serif",
+                }}
+              />
+              {err && <div style={{ color: C.red, fontSize: 12, textAlign: "center", marginTop: 8 }}>{t("lock_wrong")}</div>}
+              <button onClick={tryUnlock} style={{
+                marginTop: 14, width: "100%",
+                background: C.amber, color: "#000", border: "none",
+                borderRadius: 12, padding: "14px 0",
+                fontSize: 15, fontWeight: 700, cursor: "pointer",
+                fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1, textTransform: "uppercase",
+              }}>
+                {t("enter_btn")}
+              </button>
+            </div>
+          )}
         </div>
       );
     }
+    
+    // Keep LockScreen as alias for backward compat
+    const LockScreen = DriverSelector;
     
     // ═══════════════════════════════════════════
     //  APP ROOT
     // ═══════════════════════════════════════════
     function App() {
-      const [unlocked, setUnlocked] = useState(() => localStorage.getItem(LOCK_KEY) === "1");
+      const [myId, setMyId] = useState(() => localStorage.getItem(MY_ID_KEY) || null);
+      const [unlocked, setUnlocked] = useState(() => {
+        const id = localStorage.getItem(MY_ID_KEY);
+        return id ? localStorage.getItem(`${LOCK_KEY}-${id}`) === "1" : false;
+      });
       const [st, setSt] = useState(null);
       const [tab, setTab] = useState("home");
     
       useEffect(() => {
-        if (unlocked) loadData().then(d => setSt(d || INIT));
+        if (unlocked) loadData().then(d => {
+          const loaded = d || INIT;
+          // Always sync drivers with GROUP_DRIVERS names (in case we update them)
+          setSt({ ...loaded, drivers: GROUP_DRIVERS.map(gd => {
+            const existing = (loaded.drivers || []).find(d => d.id === gd.id);
+            return existing ? { ...gd, pix: existing.pix || gd.pix } : gd;
+          })});
+        });
       }, [unlocked]);
     
       const upd = (newSt) => { setSt(newSt); saveData(newSt); };
     
-      if (!unlocked) return <LockScreen onUnlock={() => setUnlocked(true)} lang={localStorage.getItem("caroninhas-grupo-lang") || "pt"} />;
+      const handleUnlock = (dId) => { setMyId(dId); setUnlocked(true); };
+    
+      if (!unlocked || !myId) return <DriverSelector onUnlock={handleUnlock} lang={localStorage.getItem("caroninhas-grupo-lang") || "pt"} />;
     
       const appLang = st?.lang || localStorage.getItem("caroninhas-grupo-lang") || "pt";
       const appT = mkT(appLang);
@@ -2727,12 +2963,12 @@
       return (
         <div style={{ fontFamily: "Barlow, sans-serif", background: C.bg, minHeight: "100vh", color: C.text, maxWidth: 480, margin: "0 auto", position: "relative", paddingBottom: 80 }}>
           <style>{GCSS}</style>
-          {tab === "home"   && <Home   st={st} upd={upd} setTab={setTab} />}
-          {tab === "add"    && <AddTrip st={st} upd={upd} setTab={setTab} />}
-          {tab === "saldos" && <Saldos  st={st} upd={upd} />}
-          {tab === "hist"   && <Hist    st={st} upd={upd} />}
-          {tab === "opts"   && <Opcoes  st={st} upd={upd} />}
-          <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} />
+          {tab === "home"   && <Home   st={st} upd={upd} setTab={setTab} myId={myId} />}
+          {tab === "add"    && <AddTrip st={st} upd={upd} setTab={setTab} myId={myId} />}
+          {tab === "saldos" && <Saldos  st={st} upd={upd} myId={myId} />}
+          {tab === "hist"   && <Hist    st={st} upd={upd} myId={myId} />}
+          {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} />}
+          <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} myId={myId} trips={st?.trips || []} />
         </div>
       );
     }
