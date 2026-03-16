@@ -255,6 +255,9 @@
         lock_ph: "Senha", lock_wrong: "Senha incorreta", lock_enter: "Entrar",
         // Loading
         loading: "Carregando…",
+        badge_pending_trip: "Aguardando confirmação",
+        badge_confirmed_trip: "Viagem registrada",
+        driver_label: "Motorista",
         edit_confirm_btn: "Editar e confirmar",
         add_car_cost_later: "Adicionar custo do carro",
         passengers_in_car: "Passageiros nesse carro",
@@ -1105,7 +1108,12 @@
         setEditingDate(false);
       };
     
-      const rowStyle = { background: C.card, border: `1px solid ${open ? C.amber + "55" : C.border}`, borderRadius: 12, overflow: "hidden", transition: "border-color .15s" };
+      const rowStyle = {
+        background: C.card,
+        border: `1px solid ${trip.pendingConfirmation ? C.amber+"44" : open ? C.amber+"55" : C.border}`,
+        borderRadius: 12, overflow: "hidden", transition: "border-color .15s",
+        opacity: trip.pendingConfirmation && trip.driverOwnerId !== myId ? 0.75 : 1,
+      };
       const editBar = { borderTop: `1px solid ${C.border}`, padding: "10px 14px", background: C.card2 };
       const editBtn = (active, label, onClick, color) => (
         <button onClick={onClick} style={{
@@ -1126,7 +1134,13 @@
             <div onClick={() => setOpen(o => !o)} style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: C.redDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🪑</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, color: C.text, fontWeight: 500 }}>{DIR(lang)[trip.direction]}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 14, color: C.text, fontWeight: 500 }}>{DIR(lang)[trip.direction]}</div>
+                  {trip.pendingConfirmation
+                    ? <span style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "2px 6px", letterSpacing: 0.3, textTransform: "uppercase" }}>{t("badge_pending_trip")}</span>
+                    : <span style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "2px 6px", letterSpacing: 0.3, textTransform: "uppercase" }}>{t("badge_confirmed_trip")}</span>
+                  }
+                </div>
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
                   <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(trip.date, lang)}</span>{fmtFull(trip.date)} · {t("carona_with", driverDisplayName)}
                   {isCustom && <span style={{ color: C.amber, marginLeft: 6 }}>{lang === "en" ? `· ${R(pricePerTrecho)}${t("stretch_per")}` : `· ${R(pricePerTrecho)}/trecho`}</span>}
@@ -1205,9 +1219,17 @@
           <div onClick={() => setOpen(o => !o)} style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: C.amberDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🚗</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, color: C.text, fontWeight: 500 }}>{DIR(lang)[trip.direction]}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 14, color: C.text, fontWeight: 500 }}>{DIR(lang)[trip.direction]}</div>
+                {trip.pendingConfirmation
+                  ? <span style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "2px 6px", letterSpacing: 0.3, textTransform: "uppercase" }}>{t("badge_pending_trip")}</span>
+                  : <span style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "2px 6px", letterSpacing: 0.3, textTransform: "uppercase" }}>{t("badge_confirmed_trip")}</span>
+                }
+              </div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(trip.date, lang)}</span>{fmtFull(trip.date)} · {t("pax_label", pax.length)}
+                <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(trip.date, lang)}</span>{fmtFull(trip.date)}
+                {' · '}<span style={{ color: C.text, fontWeight: 500 }}>{t("driver_label")}: {st.drivers.find(d => d.id === (trip.driverOwnerId || trip.registeredBy))?.name || "?"}</span>
+                {' · '}{t("pax_label", pax.length)}
                 {hasCustom && <span style={{ color: C.amber, marginLeft: 4 }}>{lang === "en" ? "· custom prices" : "· preços variados"}</span>}
                 {hasDirVariant && <span style={{ color: C.blue, marginLeft: 4 }}>{lang === "en" ? "· mixed stretches" : "· trechos variados"}</span>}
                 {trip.note && <div style={{ marginTop: 2, color: C.muted, fontStyle: "italic" }}>{trip.note}</div>}
@@ -1327,7 +1349,7 @@
       const { driverNet, paxRecv, paxRecvd } = calcBalances(weekTrips, myId);
       const totalOwed    = Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n < 0 ? s + Math.abs(n) : s; }, 0);
       const totalPending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n > 0 ? s + n : s; }, 0);
-      const sorted = [...weekTrips].sort((a, b) => b.date.localeCompare(a.date));
+      const sorted = [...weekTrips].sort((a, b) => b.date.localeCompare(a.date)); // includes pending
     
       // "Quitado com carona": only true when there ARE gross unpaid amounts on BOTH sides
       // (I owe someone AND someone owes me) that net to zero — not just an empty week.
@@ -1671,6 +1693,7 @@
           const selfPax = {
             id: uid(), name: st.drivers.find(d => d.id === myId)?.name || myId,
             driverId: myId, paid, price: parsedTripPrice !== PRICE ? parsedTripPrice : undefined,
+            direction: dir !== "ambas" ? dir : undefined, // save self-direction if not default
           };
           const otherPaxList = pax.filter(paxValid).map(p => {
             const pp = parseFloat(p.price) || PRICE;
@@ -1685,7 +1708,7 @@
             };
           });
           trip = {
-            id: uid(), date, weekStart: getMonday(date), direction: dir, role: "motorista",
+            id: uid(), date, weekStart: getMonday(date), direction: "ambas", role: "motorista",
             createdAt: Date.now(), registeredBy: myId,
             pendingConfirmation: true, driverOwnerId: driverId,
             passengers: [selfPax, ...otherPaxList],
@@ -1802,6 +1825,22 @@
                     ⚠️ {lang === "en" ? "This trip will require confirmation from the driver." : "Essa viagem precisará ser confirmada pelo motorista."}
                   </div>
                 )}
+                {/* My own direction (can differ from trip direction) */}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ color: C.muted, fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>{lang === "en" ? "My stretch" : "Meu trecho"}</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[["ida", t("add_leg_there")], ["volta", t("add_leg_back")], ["ambas", t("add_leg_both")]].map(([val, lbl2]) => (
+                      <button key={val} onClick={() => setDir(val)}
+                        style={{
+                          flex: 1, background: dir === val ? C.amberDim : "transparent",
+                          color: dir === val ? C.amber : C.muted,
+                          border: `1px solid ${dir === val ? C.amber+"55" : C.border}`,
+                          borderRadius: 8, padding: "8px 4px", fontSize: 12, fontWeight: dir === val ? 700 : 400,
+                          cursor: "pointer", fontFamily: "Barlow, sans-serif",
+                        }}>{lbl2}</button>
+                    ))}
+                  </div>
+                </div>
                 <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ color: C.muted, fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>{t("price_per_stretch")}</div>
