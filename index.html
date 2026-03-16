@@ -1018,7 +1018,7 @@
     // ═══════════════════════════════════════════
     //  TRIP CARD
     // ═══════════════════════════════════════════
-    function TripCard({ trip, st, upd, showDelete, weekDn, readOnly }) {
+    function TripCard({ trip, st, upd, showDelete, weekDn, readOnly, myId }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const [open, setOpen] = useState(false);
@@ -1206,11 +1206,20 @@
                       </div>
                       {!readOnly && (() => {
                         const pCancelled = !p.paid && isCancelledByRide(p.driverId);
+                        const isOwner = !myId || trip.registeredBy === myId || trip.registeredBy === undefined;
                         if (pCancelled) {
                           return (
                             <div style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, fontFamily: "Barlow, sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>
                               {t("trip_quitado_btn")}
                             </div>
+                          );
+                        }
+                        if (!isOwner) {
+                          // Not the driver of this trip — read-only status
+                          return (
+                            <span style={{ fontSize: 11, color: p.paid ? C.green : C.muted, flexShrink: 0 }}>
+                              {p.paid ? t("received_label_short") : t("trip_pending_label")}
+                            </span>
                           );
                         }
                         return (
@@ -1419,7 +1428,7 @@
               <div>
                 <SectionLabel>{isCurrentWeek ? t("home_trips_this_week") : t("home_trips_week")}</SectionLabel>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {sorted.map(t => <TripCard key={t.id} trip={t} st={st} upd={upd} showDelete weekDn={driverNet} />)}
+                  {sorted.map(tr => <TripCard key={tr.id} trip={tr} st={st} upd={upd} showDelete={tr.registeredBy === myId || !tr.registeredBy} weekDn={driverNet} myId={myId} />)}
                 </div>
               </div>
             ) : (
