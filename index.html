@@ -607,9 +607,14 @@
       done: true,
       drivers: GROUP_DRIVERS,
       trips: [],
-      carCosts: { gas: DEF_GAS, toll: DEF_TOLL },
+      driverCarCosts: {}, // { [dId]: { gas, toll } }
       lang: "pt",
     };
+    
+    // Helper: get car costs for a driver
+    function getCarCosts(st, dId) {
+      return (st.driverCarCosts || {})[dId] || { gas: DEF_GAS, toll: DEF_TOLL };
+    }
     
     // ═══════════════════════════════════════════
     //  BALANCE ENGINE
@@ -1377,7 +1382,7 @@
     
       const startEditPending = (tr) => {
         setEditingPendingId(tr.id);
-        const defCC = st.carCosts || { gas: DEF_GAS, toll: DEF_TOLL };
+        const defCC = getCarCosts(st, myId);
         setPendingEdits(prev => ({
           ...prev,
           [tr.id]: {
@@ -1650,7 +1655,7 @@
       const [paid, setPaid] = useState(false);
       const [tripPriceVal, setTripPriceVal] = useState(String(PRICE));
       const [pax, setPax] = useState([{ id: uid(), name: "", driverId: "", paid: false, price: String(PRICE), direction: null }]);
-      const defCC = st.carCosts || { gas: DEF_GAS, toll: DEF_TOLL };
+      const defCC = getCarCosts(st, myId);
       const [includeCarCost, setIncludeCarCost] = useState(true);
       const [carGas,  setCarGas]  = useState(String(defCC.gas));
       const [carToll, setCarToll] = useState(String(defCC.toll));
@@ -2507,7 +2512,7 @@
                         const monthName = new Date(Number(y), Number(m2) - 1).toLocaleString(lang === "en" ? "en-US" : "pt-BR", { month: "long", year: "numeric" });
                         const isCurrent = mon === thisMonthPfx;
                         const isOpen = expanded["car_"+mon];
-                        const monTrips = st.trips.filter(t => t.role === "motorista" && t.carCost && t.weekStart.slice(0,7) === mon);
+                        const monTrips = st.trips.filter(t => t.role === "motorista" && t.registeredBy === myId && t.carCost && t.weekStart.slice(0,7) === mon);
                         return (
                           <div key={mon} style={{ background: C.card, border: `1px solid ${pending > 0 ? "#F5A62333" : C.green+"44"}`, borderRadius: 12, overflow: "hidden" }}>
                             <button onClick={() => toggleExp("car_"+mon)} style={{ width: "100%", background: "none", border: "none", padding: "13px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2772,7 +2777,7 @@
         ? [...st.drivers, ...Array.from({ length: 5 - st.drivers.length }, (_, i) => ({ id: `d${st.drivers.length + i + 1}`, name: "" }))]
         : st.drivers
       );
-      const defCC = st.carCosts || { gas: DEF_GAS, toll: DEF_TOLL };
+      const defCC = getCarCosts(st, myId);
       const [gasVal,  setGasVal]  = useState(String(defCC.gas));
       const [tollVal, setTollVal] = useState(String(defCC.toll));
       const [saved, setSaved] = useState(false);
@@ -2789,7 +2794,8 @@
       };
     
       const saveCarCosts = () => {
-        upd({ ...st, carCosts: { gas: parseFloat(gasVal) || DEF_GAS, toll: parseFloat(tollVal) || DEF_TOLL } });
+        const dcc = { ...(st.driverCarCosts || {}), [myId]: { gas: parseFloat(gasVal) || DEF_GAS, toll: parseFloat(tollVal) || DEF_TOLL } };
+        upd({ ...st, driverCarCosts: dcc });
         setCcSaved(true);
         setTimeout(() => setCcSaved(false), 2000);
       };
