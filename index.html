@@ -1622,7 +1622,7 @@
       const t = mkT(lang);
       const [date, setDate] = useState(todayStr());
       const [dir, setDir] = useState("ambas");
-      const [role, setRole] = useState("passageiro");
+      const [role, setRole] = useState("motorista");
       const [driverId, setDriverId] = useState(() => st.drivers.find(d => d.id !== myId)?.id || "__other__");
       const [driverCustomName, setDriverCustomName] = useState("");
       const [paid, setPaid] = useState(false);
@@ -1639,6 +1639,7 @@
       const addCoPax = () => setCoPassengers(prev => [...prev, { id: uid(), driverId: "", name: "" }]);
       const remCoPax = (id) => setCoPassengers(prev => prev.filter(p => p.id !== id));
       const updCoPax = (id, field, val) => setCoPassengers(prev => prev.map(p => p.id === id ? { ...p, [field]: val } : p));
+      const [overrideDriver, setOverrideDriver] = useState(""); // admin only: register trip on behalf of another driver
     
       // For passageiro form: all drivers except self (who drove you?)
       const otherDrivers = st.drivers.filter(d => d.id !== myId && d.name);
@@ -1721,7 +1722,7 @@
             ...(note.trim() ? { note: note.trim().slice(0, 35) } : {}),
           };
         }
-        const duplicate = st.trips.some(t => t.date === date && !t.pendingConfirmation);
+        const duplicate = st.trips.some(t => t.date === date && !t.pendingConfirmation && t.role === "motorista");
         if (duplicate) {
           setToast(t("add_duplicate"));
           return;
@@ -1898,6 +1899,24 @@
                     })}
                   </div>
                 )}
+              </div>
+            )}
+    
+            {/* Admin only: register trip for another driver */}
+            {myId === ADMIN_ID && role === "motorista" && (
+              <div style={{ background: C.card, border: `1px solid ${C.amber}33`, borderRadius: 14, padding: "14px 16px" }}>
+                <label style={lbl}>{lang === "en" ? "Drove by" : "Quem dirigiu?"}</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => setOverrideDriver("")} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${!overrideDriver ? C.amber : C.border}`, background: !overrideDriver ? C.amberDim : C.dim, color: !overrideDriver ? C.amber : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: !overrideDriver ? 700 : 400 }}>
+                    {lang === "en" ? "Me (Mário)" : "Eu (Mário)"}
+                  </button>
+                  {st.drivers.filter(d => d.id !== ADMIN_ID && d.name).map(d => (
+                    <button key={d.id} onClick={() => setOverrideDriver(d.id)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${overrideDriver === d.id ? C.amber : C.border}`, background: overrideDriver === d.id ? C.amberDim : C.dim, color: overrideDriver === d.id ? C.amber : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: overrideDriver === d.id ? 700 : 400 }}>
+                      {d.name}
+                    </button>
+                  ))}
+                </div>
+                {overrideDriver && <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>{lang === "en" ? "⚠️ Will require confirmation from that driver." : "⚠️ Aguardará confirmação do motorista."}</div>}
               </div>
             )}
     
