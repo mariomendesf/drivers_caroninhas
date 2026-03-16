@@ -534,24 +534,26 @@
     }
     
     async function loadData() {
-      // Always save to localStorage first as backup
       const db = await __dbReady;
       if (db) {
         try {
           console.log("[grupo] Loading from Firestore...");
           const snap = await db.collection("caronas").doc(KEY).get();
           if (snap.exists) {
-            const fsData = snap.data().payload;
-            const lsData = lsGet();
-            // Prefer whichever has more trips (handles race where save only hit localStorage)
-            const useData = (lsData?.trips?.length > fsData?.trips?.length) ? lsData : fsData;
-            if (useData === lsData) {
-              console.log("[grupo] localStorage newer, syncing to Firestore...");
-              await db.collection("caronas").doc(KEY).set({ payload: lsData });
+            const fsData = snap.data()?.payload;
+            if (!fsData || !Array.isArray(fsData.trips)) {
+              console.warn("[grupo] Firestore doc exists but payload invalid, using localStorage");
+            } else {
+              const lsData = lsGet();
+              const useData = (lsData?.trips?.length > fsData.trips.length) ? lsData : fsData;
+              if (useData === lsData) {
+                console.log("[grupo] localStorage newer, syncing to Firestore...");
+                await db.collection("caronas").doc(KEY).set({ payload: stripUndefined(lsData) });
+              }
+              console.log("[grupo] Loaded OK, trips:", useData.trips.length);
+              lsSet(useData);
+              return useData;
             }
-            console.log("[grupo] Loaded OK, trips:", useData.trips?.length);
-            lsSet(useData);
-            return useData;
           }
           console.log("[grupo] No Firestore doc yet, checking localStorage...");
         } catch(e) { console.error("[grupo] Firestore load ERROR:", e); }
@@ -563,18 +565,28 @@
       return local;
     }
     
+    // Recursively remove undefined values (Firestore rejects them)
+    function stripUndefined(obj) {
+      if (Array.isArray(obj)) return obj.map(stripUndefined);
+      if (obj !== null && typeof obj === "object") {
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+          if (v !== undefined) out[k] = stripUndefined(v);
+        }
+        return out;
+      }
+      return obj;
+    }
+    
     async function saveData(d) {
-      // 1. Save to localStorage immediately (never fails, instant)
       lsSet(d);
-      // 2. Save to Firestore (wait for it to be ready)
       const db = await __dbReady;
       if (db) {
         try {
-          await db.collection("caronas").doc(KEY).set({ payload: d });
+          await db.collection("caronas").doc(KEY).set({ payload: stripUndefined(d) });
           console.log("[grupo] Saved to Firestore OK, trips:", d.trips?.length);
         } catch(e) {
           console.error("[grupo] Firestore save ERROR:", e);
-          // Data is safe in localStorage — user will see warning in Opcoes
         }
       } else {
         console.warn("[grupo] Firebase not available — data only in localStorage");
