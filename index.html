@@ -255,6 +255,10 @@
         lock_ph: "Senha", lock_wrong: "Senha incorreta", lock_enter: "Entrar",
         // Loading
         loading: "Carregando…",
+        edit_confirm_btn: "Editar e confirmar",
+        add_car_cost_later: "Adicionar custo do carro",
+        passengers_in_car: "Passageiros nesse carro",
+        including_you: "(incluindo você)",
         sign_out: "Trocar perfil",
         sign_out_confirm: "Você será desconectado. Continuar?",
         who_are_you: "Quem é você?",
@@ -1127,6 +1131,11 @@
                   <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(trip.date, lang)}</span>{fmtFull(trip.date)} · {t("carona_with", driverDisplayName)}
                   {isCustom && <span style={{ color: C.amber, marginLeft: 6 }}>{lang === "en" ? `· ${R(pricePerTrecho)}${t("stretch_per")}` : `· ${R(pricePerTrecho)}/trecho`}</span>}
                   {trip.note && <div style={{ marginTop: 2, color: C.muted, fontStyle: "italic" }}>{trip.note}</div>}
+                  {trip.coPassengers?.length > 0 && (
+                    <div style={{ marginTop: 2, color: C.muted, fontSize: 11 }}>
+                      + {trip.coPassengers.map(p => p.name).join(", ")}
+                    </div>
+                  )}
                 </div>
               </div>
               {(() => {
@@ -1341,11 +1350,46 @@
       // Pending confirmations for me
       const pendingTrips = st.trips.filter(tr => tr.pendingConfirmation && tr.driverOwnerId === myId);
     
-      const confirmTrip = (tripId) => {
-        upd({ ...st, trips: st.trips.map(tr => tr.id === tripId ? { ...tr, pendingConfirmation: false, driverOwnerId: undefined } : tr) });
+      const [editingPendingId, setEditingPendingId] = useState(null);
+      const [pendingEdits, setPendingEdits] = useState({});  // tripId → {passengers, carGas, carToll, includeCarCost}
+    
+      const startEditPending = (tr) => {
+        setEditingPendingId(tr.id);
+        const defCC = st.carCosts || { gas: DEF_GAS, toll: DEF_TOLL };
+        setPendingEdits(prev => ({
+          ...prev,
+          [tr.id]: {
+            passengers: (tr.passengers || []).map(p => ({ ...p, price: String(paxPrice(p)) })),
+            carGas: String(defCC.gas),
+            carToll: String(defCC.toll),
+            includeCarCost: false,
+          }
+        }));
       };
+    
+      const confirmTrip = (tripId) => {
+        const edit = pendingEdits[tripId];
+        upd({ ...st, trips: st.trips.map(tr => {
+          if (tr.id !== tripId) return tr;
+          const base = { ...tr, pendingConfirmation: false, registeredBy: myId, driverOwnerId: undefined };
+          if (edit) {
+            const parsedPax = edit.passengers.map(p => ({
+              ...p,
+              price: parseFloat(p.price) !== PRICE ? parseFloat(p.price) || undefined : undefined,
+            }));
+            const carCost = edit.includeCarCost
+              ? { gas: parseFloat(edit.carGas) || 0, toll: parseFloat(edit.carToll) || 0, paid: false }
+              : undefined;
+            return { ...base, passengers: parsedPax, ...(carCost ? { carCost } : {}) };
+          }
+          return { ...base, registeredBy: myId };
+        })});
+        setEditingPendingId(null);
+      };
+    
       const rejectTrip = (tripId) => {
         upd({ ...st, trips: st.trips.filter(tr => tr.id !== tripId) });
+        setEditingPendingId(null);
       };
     
       return (
@@ -1359,39 +1403,102 @@
                 </div>
                 {pendingTrips.map(tr => {
                   const registrant = st.drivers.find(d => d.id === tr.registeredBy);
+                  const isEditing = editingPendingId === tr.id;
+                  const edit = pendingEdits[tr.id] || {};
+                  const inpS = { background: "#1A1825", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", color: C.text, fontSize: 14, outline: "none", fontFamily: "Barlow, sans-serif" };
                   return (
                     <div key={tr.id} style={{ background: C.card, borderRadius: 10, padding: "12px 14px", marginBottom: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
-                            <span style={{ color: C.amber, marginRight: 6 }}>{weekday(tr.date, lang)}</span>{fmtFull(tr.date)} · {DIR(lang)[tr.direction]}
-                          </div>
-                          <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
-                            {t("pending_confirm_sub", registrant?.name || tr.registeredBy)}
-                          </div>
-                          {tr.role === "motorista" && (tr.passengers || []).length > 0 && (
-                            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                              {lang === "en" ? "Passengers: " : "Passageiros: "}
-                              {(tr.passengers || []).map(p => p.name).filter(Boolean).join(", ")}
+                      {/* Header */}
+                      <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>
+                        <span style={{ color: C.amber, marginRight: 6 }}>{weekday(tr.date, lang)}</span>{fmtFull(tr.date)} · {DIR(lang)[tr.direction]}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>
+                        {t("pending_confirm_sub", registrant?.name || tr.registeredBy)}
+                      </div>
+    
+                      {!isEditing ? (
+                        <>
+                          {/* Quick summary */}
+                          {(tr.passengers || []).length > 0 && (
+                            <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
+                              {t("passengers_in_car")}: {(tr.passengers || []).map(p => p.name).join(", ")}
                             </div>
                           )}
-                          {tr.role === "passageiro" && (
-                            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                              {lang === "en"
-                                ? `${st.drivers.find(d => d.id === tr.registeredBy)?.name || "Someone"} says they rode with you`
-                                : `${st.drivers.find(d => d.id === tr.registeredBy)?.name || "Alguém"} diz que foi de carona com você`}
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={() => startEditPending(tr)} style={{ flex: 2, background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                              {t("edit_confirm_btn")}
+                            </button>
+                            <button onClick={() => rejectTrip(tr.id)} style={{ flex: 1, background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                              {t("reject_btn")}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Edit form */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+                            {/* Passengers with price edit */}
+                            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 2 }}>
+                              {t("passengers_in_car")}
                             </div>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => confirmTrip(tr.id)} style={{ flex: 1, background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
-                          {t("confirm_btn")}
-                        </button>
-                        <button onClick={() => rejectTrip(tr.id)} style={{ flex: 1, background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
-                          {t("reject_btn")}
-                        </button>
-                      </div>
+                            {(edit.passengers || []).map((p, i) => {
+                              const pp = parseFloat(p.price) || PRICE;
+                              return (
+                                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1A1825", borderRadius: 8, padding: "8px 10px" }}>
+                                  <div style={{ flex: 1, fontSize: 13, color: C.text }}>{p.name}</div>
+                                  <span style={{ fontSize: 12, color: C.muted }}>R$</span>
+                                  <input
+                                    type="number" min="0" step="1"
+                                    value={p.price}
+                                    onChange={e => setPendingEdits(prev => ({
+                                      ...prev,
+                                      [tr.id]: { ...prev[tr.id], passengers: prev[tr.id].passengers.map((px, j) => j === i ? { ...px, price: e.target.value } : px) }
+                                    }))}
+                                    style={{ ...inpS, width: 64, textAlign: "center", borderColor: pp !== PRICE ? C.amber+"66" : C.border }}
+                                  />
+                                  <span style={{ fontSize: 11, color: C.muted }}>{t("stretch_per")}</span>
+                                </div>
+                              );
+                            })}
+    
+                            {/* Car cost section */}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+                              <span style={{ fontSize: 13, color: C.text }}>⛽ {t("add_car_cost_later")}</span>
+                              <Toggle on={edit.includeCarCost} onChange={v => setPendingEdits(prev => ({ ...prev, [tr.id]: { ...prev[tr.id], includeCarCost: v } }))} />
+                            </div>
+                            {edit.includeCarCost && (
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{t("opts_fuel")}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ color: C.muted, fontSize: 12 }}>R$</span>
+                                    <input type="number" min="0" step="0.01" value={edit.carGas}
+                                      onChange={e => setPendingEdits(prev => ({ ...prev, [tr.id]: { ...prev[tr.id], carGas: e.target.value } }))}
+                                      style={{ ...inpS, flex: 1, textAlign: "center" }} />
+                                  </div>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{t("opts_toll")}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ color: C.muted, fontSize: 12 }}>R$</span>
+                                    <input type="number" min="0" step="0.01" value={edit.carToll}
+                                      onChange={e => setPendingEdits(prev => ({ ...prev, [tr.id]: { ...prev[tr.id], carToll: e.target.value } }))}
+                                      style={{ ...inpS, flex: 1, textAlign: "center" }} />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={() => confirmTrip(tr.id)} style={{ flex: 2, background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                              {t("confirm_btn")}
+                            </button>
+                            <button onClick={() => setEditingPendingId(null)} style={{ flex: 1, background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 9, padding: "9px 0", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                              {t("cancel_btn")}
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
@@ -1507,6 +1614,10 @@
       const [carCostPaid, setCarCostPaid] = useState(false);
       const [note, setNote] = useState("");
       const [toast, setToast] = useState(null);
+      const [coPassengers, setCoPassengers] = useState([]); // other passengers in same car (passageiro form)
+      const addCoPax = () => setCoPassengers(prev => [...prev, { id: uid(), driverId: "", name: "" }]);
+      const remCoPax = (id) => setCoPassengers(prev => prev.filter(p => p.id !== id));
+      const updCoPax = (id, field, val) => setCoPassengers(prev => prev.map(p => p.id === id ? { ...p, [field]: val } : p));
     
       // For passageiro form: all drivers except self (who drove you?)
       const otherDrivers = st.drivers.filter(d => d.id !== myId && d.name);
@@ -1530,39 +1641,65 @@
         : (pax.some(paxValid) || includeCarCost);
     
       const save = () => {
-        // passageiro + known driver → pending confirmation for that driver
-        const isPendingTrip = role === "passageiro" && driverId && driverId !== "__other__";
-        const trip = {
-          id: uid(), date, weekStart: getMonday(date), direction: dir, role,
-          createdAt: Date.now(),
-          registeredBy: myId,
-          ...(isPendingTrip ? { pendingConfirmation: true, driverOwnerId: driverId } : {}),
-          ...(role === "passageiro"
-            ? {
-                ...(isCustomDriver
-                  ? { driverName: driverCustomName.trim() }
-                  : { driverId }),
-                paid,
-                price: parsedTripPrice !== PRICE ? parsedTripPrice : undefined,
-              }
-            : {
-                passengers: pax.filter(paxValid).map(p => {
-                  const pp = parseFloat(p.price) || PRICE;
-                  const resolvedName = p.driverId
-                    ? (st.drivers.find(d => d.id === p.driverId)?.name || p.name.trim())
-                    : p.name.trim();
-                  return {
-                    id: p.id, name: resolvedName,
-                    driverId: p.driverId || undefined, paid: p.paid,
-                    price: pp !== PRICE ? pp : undefined,
-                    direction: p.direction || undefined,
-                  };
-                }),
-                ...(includeCarCost ? { carCost: { gas: parsedCarGas, toll: parsedCarToll, paid: carCostPaid } } : {}),
-              }
-          ),
-          ...(note.trim() ? { note: note.trim().slice(0, 35) } : {}),
-        };
+        // Build trip object
+        let trip;
+        if (role === "passageiro" && !isCustomDriver && driverId) {
+          // Passenger registering on driver's behalf → create pending motorista trip
+          // Build passenger list: self + coPassengers
+          const selfPax = {
+            id: uid(), name: st.drivers.find(d => d.id === myId)?.name || myId,
+            driverId: myId, paid, price: parsedTripPrice !== PRICE ? parsedTripPrice : undefined,
+          };
+          const otherPaxList = pax.filter(paxValid).map(p => {
+            const pp = parseFloat(p.price) || PRICE;
+            const resolvedName = p.driverId
+              ? (st.drivers.find(d => d.id === p.driverId)?.name || p.name.trim())
+              : p.name.trim();
+            return {
+              id: p.id, name: resolvedName,
+              driverId: p.driverId || undefined, paid: false,
+              price: pp !== PRICE ? pp : undefined,
+              direction: p.direction || undefined,
+            };
+          });
+          trip = {
+            id: uid(), date, weekStart: getMonday(date), direction: dir, role: "motorista",
+            createdAt: Date.now(), registeredBy: myId,
+            pendingConfirmation: true, driverOwnerId: driverId,
+            passengers: [selfPax, ...otherPaxList],
+            ...(note.trim() ? { note: note.trim().slice(0, 35) } : {}),
+          };
+        } else if (role === "passageiro" && isCustomDriver) {
+          // Unknown driver — plain passageiro trip, no confirmation needed
+          trip = {
+            id: uid(), date, weekStart: getMonday(date), direction: dir, role: "passageiro",
+            createdAt: Date.now(), registeredBy: myId,
+            driverName: driverCustomName.trim(),
+            paid, price: parsedTripPrice !== PRICE ? parsedTripPrice : undefined,
+            ...(note.trim() ? { note: note.trim().slice(0, 35) } : {}),
+          };
+        } else {
+          // Motorista registering own trip (or admin override)
+          trip = {
+            id: uid(), date, weekStart: getMonday(date), direction: dir, role: "motorista",
+            createdAt: Date.now(), registeredBy: myId,
+            ...(overrideDriver ? { pendingConfirmation: true, driverOwnerId: overrideDriver } : {}),
+            passengers: pax.filter(paxValid).map(p => {
+              const pp = parseFloat(p.price) || PRICE;
+              const resolvedName = p.driverId
+                ? (st.drivers.find(d => d.id === p.driverId)?.name || p.name.trim())
+                : p.name.trim();
+              return {
+                id: p.id, name: resolvedName,
+                driverId: p.driverId || undefined, paid: p.paid,
+                price: pp !== PRICE ? pp : undefined,
+                direction: p.direction || undefined,
+              };
+            }),
+            ...(includeCarCost ? { carCost: { gas: parsedCarGas, toll: parsedCarToll, paid: carCostPaid } } : {}),
+            ...(note.trim() ? { note: note.trim().slice(0, 35) } : {}),
+          };
+        }
         const duplicate = st.trips.some(t => t.date === date);
         if (duplicate) {
           setToast(t("add_duplicate"));
@@ -1665,6 +1802,64 @@
                   </span>
                   <Toggle on={paid} onChange={setPaid} />
                 </div>
+    
+                {/* Other passengers — only when known driver selected (will create pending motorista trip) */}
+                {!isCustomDriver && driverId && (
+                  <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div>
+                        <div style={{ color: C.muted, fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>
+                          {t("add_passengers")}
+                        </div>
+                        <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
+                          {t("including_you")}
+                        </div>
+                      </div>
+                      {pax.length < 3 && (
+                        <button onClick={addPax} style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                          + {lang === "en" ? "Add" : "Adicionar"}
+                        </button>
+                      )}
+                    </div>
+                    {pax.map((p, i) => {
+                      const pp = parseFloat(p.price) || PRICE;
+                      const isCustomPax = pp !== PRICE;
+                      return (
+                        <div key={p.id} style={{ background: C.dim, borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                            <select
+                              value={p.driverId}
+                              onChange={e => { const did = e.target.value; updPax(p.id, "driverId", did); if (did && did !== "__custom__") updPax(p.id, "name", ""); }}
+                              style={{ ...inp, flex: 1, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", padding: "8px 10px" }}
+                            >
+                              <option value="">{t("add_pax_select_ph")}</option>
+                              {st.drivers.filter(d => d.id !== myId && d.name).map(d => (
+                                <option key={d.id} value={d.id}>{d.name}</option>
+                              ))}
+                              <option value="__custom__">{t("add_pax_other")}</option>
+                            </select>
+                            {pax.length > 0 && (
+                              <button onClick={() => remPax(p.id)} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 20, padding: 0, flexShrink: 0, lineHeight: 1 }}>×</button>
+                            )}
+                          </div>
+                          {p.driverId === "__custom__" && (
+                            <input value={p.name} onChange={e => updPax(p.id, "name", e.target.value)}
+                              placeholder={t("add_pax_name_free_ph")}
+                              style={{ ...inp, background: "transparent", border: `1px solid ${C.border}`, marginBottom: 6 }} />
+                          )}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 12, color: C.muted }}>R$</span>
+                            <input type="number" min="0" step="1" value={p.price}
+                              onChange={e => updPax(p.id, "price", e.target.value)}
+                              style={{ ...inp, width: 70, padding: "6px 8px", fontSize: 14, textAlign: "center",
+                                borderColor: isCustomPax ? C.amber+"88" : C.border }} />
+                            <span style={{ fontSize: 11, color: C.muted }}>{t("stretch_per")}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
     
@@ -1894,7 +2089,7 @@
         .reduce((s, t) => {
           const wdn = getWeekDn(t.weekStart);
           return s + (t.passengers || [])
-            .filter(p => !p.paid && p.driverId && netPending(wdn[p.driverId] || {iOwe:0,iOwePaid:0,theyOwe:0,theyOwePaid:0}) >= 0)
+            .filter(p => !p.paid && p.driverId && wdn[p.driverId] && netPending(wdn[p.driverId]) >= 0)
             .reduce((ps, p) => ps + paxPrice(p) * paxMult(p, t.direction), 0);
         }, 0);
       const flowWeeks    = Object.keys(flowByWeek).sort((a, b) => b.localeCompare(a));
@@ -2286,7 +2481,7 @@
                           .reduce((s, t) => {
                             const wdn = getWeekDn(t.weekStart);
                             return s + (t.passengers || [])
-                              .filter(p => !p.paid && p.driverId && netPending(wdn[p.driverId] || {iOwe:0,iOwePaid:0,theyOwe:0,theyOwePaid:0}) >= 0)
+                              .filter(p => !p.paid && p.driverId && wdn[p.driverId] && netPending(wdn[p.driverId]) >= 0)
                               .reduce((ps, p) => ps + paxPrice(p) * paxMult(p, t.direction), 0);
                           }, 0);
                         const earnedPendingReal = (v.earnedPending || 0) - monEarnedCancelled;
@@ -2349,7 +2544,7 @@
                         const weekEarnedCancelled = weekTripsForBadge
                           .filter(t => t.role === "motorista")
                           .reduce((s, t) => s + (t.passengers || [])
-                            .filter(p => !p.paid && p.driverId && netPending(wdn[p.driverId] || {iOwe:0,iOwePaid:0,theyOwe:0,theyOwePaid:0}) >= 0)
+                            .filter(p => !p.paid && p.driverId && wdn[p.driverId] && netPending(wdn[p.driverId]) >= 0)
                             .reduce((ps, p) => ps + paxPrice(p) * paxMult(p, t.direction), 0), 0);
                         const earnedPendingReal = (v.earnedPending || 0) - weekEarnedCancelled;
                         return (
