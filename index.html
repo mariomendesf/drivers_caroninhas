@@ -31,12 +31,12 @@
   <script>
     try {
       firebase.initializeApp({
-        apiKey: "AIzaSyDpn8PRl5oQQcEeocMue6jxWzSjMQP-shg",
-        authDomain: "caroninhas-2cb0b.firebaseapp.com",
-        projectId: "caroninhas-2cb0b",
-        storageBucket: "caroninhas-2cb0b.firebasestorage.app",
-        messagingSenderId: "803353452902",
-        appId: "1:803353452902:web:d2d146472c8d2f76f4a8a7"
+        apiKey: "AIzaSyAdZh7DEfxlK1VHyiB_3UOpAM5-eCaf0_0",
+        authDomain: "caroninhas-group.firebaseapp.com",
+        projectId: "caroninhas-group",
+        storageBucket: "caroninhas-group.firebasestorage.app",
+        messagingSenderId: "972351273413",
+        appId: "1:972351273413:web:349ef5744b56cb207b33ac"
       });
       window.__db = firebase.firestore();
       console.log("[caronas] Firebase initialized OK");
@@ -515,37 +515,69 @@
     // ═══════════════════════════════════════════
     //  STORAGE
     // ═══════════════════════════════════════════
-    async function loadData() {
-      if (window.__db) {
-        try {
-          console.log("[caronas] Loading from Firestore...");
-          const snap = await window.__db.collection("caronas").doc(KEY).get();
-          if (snap.exists) {
-            const data = snap.data().payload;
-            console.log("[caronas] Firestore OK, trips:", data.trips?.length);
-            localStorage.setItem(KEY, JSON.stringify(data));
-            return data;
-          }
-          console.log("[caronas] No Firestore doc yet");
-        } catch(e) { console.error("[caronas] Firestore load ERROR:", e); }
-      } else {
-        console.warn("[caronas] Firebase not ready");
-      }
-      try {
-        const raw = localStorage.getItem(KEY);
-        if (raw) console.log("[caronas] Using localStorage fallback");
-        return raw ? JSON.parse(raw) : null;
-      } catch { return null; }
+    
+    // Promise that resolves when Firebase is ready (max 5s wait)
+    const __dbReady = new Promise(resolve => {
+      if (window.__db) return resolve(window.__db);
+      let attempts = 0;
+      const check = setInterval(() => {
+        if (window.__db) { clearInterval(check); resolve(window.__db); }
+        else if (++attempts > 50) { clearInterval(check); resolve(null); } // 5s timeout
+      }, 100);
+    });
+    
+    function lsGet() {
+      try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch { return null; }
     }
-    async function saveData(d) {
+    function lsSet(d) {
       try { localStorage.setItem(KEY, JSON.stringify(d)); } catch {}
-      if (window.__db) {
+    }
+    
+    async function loadData() {
+      // Always save to localStorage first as backup
+      const db = await __dbReady;
+      if (db) {
         try {
-          await window.__db.collection("caronas").doc(KEY).set({ payload: d });
-          console.log("[caronas] Saved to Firestore OK");
-        } catch(e) { console.error("[caronas] Firestore save ERROR:", e); }
+          console.log("[grupo] Loading from Firestore...");
+          const snap = await db.collection("caronas").doc(KEY).get();
+          if (snap.exists) {
+            const fsData = snap.data().payload;
+            const lsData = lsGet();
+            // Prefer whichever has more trips (handles race where save only hit localStorage)
+            const useData = (lsData?.trips?.length > fsData?.trips?.length) ? lsData : fsData;
+            if (useData === lsData) {
+              console.log("[grupo] localStorage newer, syncing to Firestore...");
+              await db.collection("caronas").doc(KEY).set({ payload: lsData });
+            }
+            console.log("[grupo] Loaded OK, trips:", useData.trips?.length);
+            lsSet(useData);
+            return useData;
+          }
+          console.log("[grupo] No Firestore doc yet, checking localStorage...");
+        } catch(e) { console.error("[grupo] Firestore load ERROR:", e); }
       } else {
-        console.warn("[caronas] Firebase not ready — saved only to localStorage");
+        console.warn("[grupo] Firebase not available");
+      }
+      const local = lsGet();
+      if (local) console.log("[grupo] Using localStorage, trips:", local.trips?.length);
+      return local;
+    }
+    
+    async function saveData(d) {
+      // 1. Save to localStorage immediately (never fails, instant)
+      lsSet(d);
+      // 2. Save to Firestore (wait for it to be ready)
+      const db = await __dbReady;
+      if (db) {
+        try {
+          await db.collection("caronas").doc(KEY).set({ payload: d });
+          console.log("[grupo] Saved to Firestore OK, trips:", d.trips?.length);
+        } catch(e) {
+          console.error("[grupo] Firestore save ERROR:", e);
+          // Data is safe in localStorage — user will see warning in Opcoes
+        }
+      } else {
+        console.warn("[grupo] Firebase not available — data only in localStorage");
       }
     }
     
