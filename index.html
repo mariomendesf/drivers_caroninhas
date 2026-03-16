@@ -113,7 +113,7 @@
         add_leg_there: "Ida →", add_leg_back: "← Volta", add_leg_both: "Ida e Volta",
         add_leg_both_note: (v) => `↑ Vale por 2 trechos = ${v}`,
         add_role: "Você foi...", add_passenger: "🪑 Fui de carona", add_driver: "🚗 Fui motorista",
-        add_who_drove: "Quem dirigiu?", add_other_driver: "Outro (digitar nome)",
+        add_who_drove: "Quem foi motorista?", add_other_driver: "Outro (digitar nome)",
         add_driver_name_ph: "Nome de quem dirigiu",
         add_price_per_leg: "Valor por trecho", add_custom_price: "valor customizado",
         add_already_paid: (v) => `Já paguei ${v}`,
@@ -312,7 +312,7 @@
         add_leg_there: "Departure →", add_leg_back: "← Return", add_leg_both: "Round Trip",
         add_leg_both_note: (v) => `↑ Counts as 2 stretches = ${v}`,
         add_role: "You were...", add_passenger: "🪑 I was a passenger", add_driver: "🚗 I was the driver",
-        add_who_drove: "Who drove?", add_other_driver: "Other (type name)",
+        add_who_drove: "Who was the driver?", add_other_driver: "Other (type name)",
         add_driver_name_ph: "Name of driver",
         add_price_per_leg: "Price per stretch", add_custom_price: "custom price",
         add_already_paid: (v) => `Already paid ${v}`,
@@ -1270,9 +1270,17 @@
                           <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
                             {t("pending_confirm_sub", registrant?.name || tr.registeredBy)}
                           </div>
-                          {(tr.passengers || []).length > 0 && (
+                          {tr.role === "motorista" && (tr.passengers || []).length > 0 && (
                             <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                              {lang === "en" ? "Passengers: " : "Passageiros: "}
                               {(tr.passengers || []).map(p => p.name).filter(Boolean).join(", ")}
+                            </div>
+                          )}
+                          {tr.role === "passageiro" && (
+                            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                              {lang === "en"
+                                ? `${st.drivers.find(d => d.id === tr.registeredBy)?.name || "Someone"} says they rode with you`
+                                : `${st.drivers.find(d => d.id === tr.registeredBy)?.name || "Alguém"} diz que foi de carona com você`}
                             </div>
                           )}
                         </div>
@@ -1387,7 +1395,7 @@
       const t = mkT(lang);
       const [date, setDate] = useState(todayStr());
       const [dir, setDir] = useState("ambas");
-      const [role, setRole] = useState(myId === ADMIN_ID ? "passageiro" : "motorista");
+      const [role, setRole] = useState("passageiro");
       const [driverId, setDriverId] = useState(() => st.drivers.find(d => d.id !== myId)?.id || "__other__");
       const [driverCustomName, setDriverCustomName] = useState("");
       const [paid, setPaid] = useState(false);
@@ -1401,7 +1409,11 @@
       const [note, setNote] = useState("");
       const [toast, setToast] = useState(null);
     
-      const others = st.drivers.filter(d => d.id !== myId && d.name);
+      // For passageiro form: all drivers except self (who drove you?)
+      const otherDrivers = st.drivers.filter(d => d.id !== myId && d.name);
+      // For motorista form: all drivers except self (who were your passengers?)
+      const allOthers = st.drivers.filter(d => d.id !== myId && d.name);
+      const others = otherDrivers; // keep alias for existing code
       const mult = dir === "ambas" ? 2 : 1;
     
       const addPax = () => { if (pax.length < 4) setPax(prev => [...prev, { id: uid(), name: "", driverId: "", paid: false, price: String(PRICE), direction: null }]); };
@@ -1418,16 +1430,14 @@
         ? (isCustomDriver ? driverCustomName.trim().length > 0 : !!driverId)
         : (pax.some(paxValid) || includeCarCost);
     
-      // For admin: can set another driver as trip owner
-      const [overrideDriver, setOverrideDriver] = useState("");
-    
       const save = () => {
-        const isPendingTrip = myId === ADMIN_ID && role === "motorista" && overrideDriver && overrideDriver !== myId;
+        // passageiro + known driver → pending confirmation for that driver
+        const isPendingTrip = role === "passageiro" && driverId && driverId !== "__other__";
         const trip = {
           id: uid(), date, weekStart: getMonday(date), direction: dir, role,
           createdAt: Date.now(),
           registeredBy: myId,
-          ...(isPendingTrip ? { pendingConfirmation: true, driverOwnerId: overrideDriver } : {}),
+          ...(isPendingTrip ? { pendingConfirmation: true, driverOwnerId: driverId } : {}),
           ...(role === "passageiro"
             ? {
                 ...(isCustomDriver
@@ -1504,29 +1514,10 @@
             <div style={cardS}>
               <label style={lbl}>{t("add_role")}</label>
               <div style={{ display: "flex", gap: 6 }}>
-                {myId === ADMIN_ID && <Pill label={t("add_passenger")} active={role === "passageiro"} onClick={() => setRole("passageiro")} />}
+                <Pill label={t("add_passenger")} active={role === "passageiro"} onClick={() => setRole("passageiro")} />
                 <Pill label={t("add_driver")} active={role === "motorista"} onClick={() => setRole("motorista")} />
               </div>
             </div>
-    
-            {/* Passageiro: quem dirigiu */}
-            {/* Admin only: register trip for another driver */}
-            {myId === ADMIN_ID && role === "motorista" && (
-              <div style={{ background: C.card, border: `1px solid ${C.amber}33`, borderRadius: 14, padding: "14px 16px", marginBottom: 4 }}>
-                <label style={lbl}>{lang === "en" ? "Drove by" : "Quem dirigiu?"}</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button onClick={() => setOverrideDriver("")} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${!overrideDriver ? C.amber : C.border}`, background: !overrideDriver ? C.amberDim : C.dim, color: !overrideDriver ? C.amber : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: !overrideDriver ? 700 : 400 }}>
-                    {lang === "en" ? "Me (Mário)" : "Eu (Mário)"}
-                  </button>
-                  {st.drivers.filter(d => d.id !== ADMIN_ID && d.name).map(d => (
-                    <button key={d.id} onClick={() => setOverrideDriver(d.id)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${overrideDriver === d.id ? C.amber : C.border}`, background: overrideDriver === d.id ? C.amberDim : C.dim, color: overrideDriver === d.id ? C.amber : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: overrideDriver === d.id ? 700 : 400 }}>
-                      {d.name}
-                    </button>
-                  ))}
-                </div>
-                {overrideDriver && <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>{lang === "en" ? "⚠️ Will require confirmation from that driver." : "⚠️ Aguardará confirmação do motorista."}</div>}
-              </div>
-            )}
     
             {role === "passageiro" && (
               <div style={cardS}>
@@ -1547,6 +1538,11 @@
                     style={{ ...inp, marginTop: 8, borderColor: driverCustomName.trim() ? C.amber+"88" : C.border }}
                     autoFocus
                   />
+                )}
+                {!isCustomDriver && driverId && (
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 10, background: C.dim, borderRadius: 8, padding: "8px 10px" }}>
+                    ⚠️ {lang === "en" ? "This trip will require confirmation from the driver." : "Essa viagem precisará ser confirmada pelo motorista."}
+                  </div>
                 )}
                 <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ flex: 1 }}>
