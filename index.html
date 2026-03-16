@@ -1946,23 +1946,6 @@
               </div>
             )}
     
-            {/* Admin only: register trip for another driver */}
-            {myId === ADMIN_ID && role === "motorista" && (
-              <div style={{ background: C.card, border: `1px solid ${C.amber}33`, borderRadius: 14, padding: "14px 16px" }}>
-                <label style={lbl}>{lang === "en" ? "Drove by" : "Quem dirigiu?"}</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button onClick={() => setOverrideDriver("")} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${!overrideDriver ? C.amber : C.border}`, background: !overrideDriver ? C.amberDim : C.dim, color: !overrideDriver ? C.amber : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: !overrideDriver ? 700 : 400 }}>
-                    {lang === "en" ? "Me (Mário)" : "Eu (Mário)"}
-                  </button>
-                  {st.drivers.filter(d => d.id !== ADMIN_ID && d.name).map(d => (
-                    <button key={d.id} onClick={() => setOverrideDriver(d.id)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${overrideDriver === d.id ? C.amber : C.border}`, background: overrideDriver === d.id ? C.amberDim : C.dim, color: overrideDriver === d.id ? C.amber : C.muted, fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: overrideDriver === d.id ? 700 : 400 }}>
-                      {d.name}
-                    </button>
-                  ))}
-                </div>
-                {overrideDriver && <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>{lang === "en" ? "⚠️ Will require confirmation from that driver." : "⚠️ Aguardará confirmação do motorista."}</div>}
-              </div>
-            )}
     
             {/* Motorista: passageiros */}
             {role === "motorista" && (
@@ -2153,8 +2136,8 @@
       const thisWeek = getMonday(todayStr());
     
       const trips = scope === "week"
-        ? st.trips.filter(t => t.weekStart === thisWeek)
-        : st.trips;
+        ? st.trips.filter(t => t.weekStart === thisWeek && !t.pendingConfirmation)
+        : st.trips.filter(t => !t.pendingConfirmation);
     
       const { driverNet, paxRecv, paxRecvd } = calcBalances(trips, myId);
       const dMap = Object.fromEntries(st.drivers.map(d => [d.id, d]));
@@ -2264,8 +2247,8 @@
                       const isEven = net === 0;
                       const theyOweMe = net > 0;
                       const iOweThem = net < 0;
-                      const iOweTrips    = st.trips.filter(t => t.role === "passageiro" && t.driverId === dId && (scope === "all" || t.weekStart === thisWeek)).sort((a,b) => b.date.localeCompare(a.date));
-                      const theyOweTrips = st.trips.filter(t => t.role === "motorista" && (scope === "all" || t.weekStart === thisWeek) && (t.passengers||[]).some(p => p.driverId === dId)).sort((a,b) => b.date.localeCompare(a.date));
+                      const iOweTrips    = st.trips.filter(t => !t.pendingConfirmation && t.role === "passageiro" && t.driverId === dId && (scope === "all" || t.weekStart === thisWeek)).sort((a,b) => b.date.localeCompare(a.date));
+                      const theyOweTrips = st.trips.filter(t => !t.pendingConfirmation && t.role === "motorista" && (scope === "all" || t.weekStart === thisWeek) && (t.passengers||[]).some(p => p.driverId === dId)).sort((a,b) => b.date.localeCompare(a.date));
                       const borderCol = isEven ? C.green + "44" : iOweThem ? C.red + "33" : C.amber + "33";
                       const isOpen = expanded[dId];
                       return (
@@ -3092,6 +3075,33 @@
     // ═══════════════════════════════════════════
     //  BOTTOM NAV
     // ═══════════════════════════════════════════
+    // ═══════════════════════════════════════════
+    //  PROFILE CHIP
+    // ═══════════════════════════════════════════
+    function ProfileChip({ st, myId }) {
+      const driver = (st?.drivers || []).find(d => d.id === myId);
+      if (!driver) return null;
+      return (
+        <div style={{
+          position: "fixed", top: 0, right: 0, zIndex: 200,
+          padding: "10px 12px 0",
+          pointerEvents: "none",
+        }}>
+          <div style={{
+            background: "rgba(14,13,18,0.88)",
+            border: "1px solid rgba(245,149,0,0.35)",
+            borderRadius: 20, padding: "3px 10px 3px 7px",
+            display: "flex", alignItems: "center", gap: 5,
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}>
+            <span style={{ fontSize: 10 }}>👤</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(245,149,0,0.95)", fontFamily: "Barlow, sans-serif", letterSpacing: 0.3 }}>{driver.name}</span>
+          </div>
+        </div>
+      );
+    }
+    
     function Nav({ tab, setTab, lang, myId, trips }) {
       const t = mkT(lang || "pt");
       const items = [
@@ -3358,6 +3368,7 @@
           {tab === "add"    && <AddTrip st={st} upd={upd} setTab={setTab} myId={myId} />}
           {tab === "saldos" && <Saldos  st={st} upd={upd} myId={myId} />}
           {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} />}
+          <ProfileChip st={st} myId={myId} />
           <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} myId={myId} trips={st?.trips || []} />
         </div>
       );
