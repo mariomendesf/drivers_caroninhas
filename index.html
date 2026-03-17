@@ -178,7 +178,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v2.8.1 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v2.9 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -247,7 +247,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v2.8.1",
+        opts_version: "Caroninhas — Grupo v2.9",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -382,7 +382,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v2.8.1 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v2.9 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -451,7 +451,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v2.8.1",
+        opts_version: "Caroninhas Group v2.9",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -3071,7 +3071,7 @@
               </div>
             </div>
     
-            <div style={cardS}>
+            {myId === ADMIN_ID && <div style={cardS}>
               <label style={lbl}>{t("opts_backup")}</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={exportBackup} style={{
@@ -3120,23 +3120,7 @@
                   {t("opts_backup_note")}
                 </div>
               </div>
-            </div>
-    
-            {/* Sign out */}
-            <div style={cardS}>
-              <button onClick={() => {
-                if (window.confirm(t("sign_out_confirm"))) {
-                  localStorage.removeItem(`${LOCK_KEY}-${myId}`);
-                  onSignOut();
-                }
-              }} style={{
-                background: C.dim, border: `1px solid ${C.border}`,
-                color: C.muted, borderRadius: 9, padding: "11px 0",
-                fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%", fontFamily: "Barlow, sans-serif",
-              }}>
-                🔓 {t("sign_out")}
-              </button>
-            </div>
+            </div>}
     
             {myId === ADMIN_ID && <div style={{ ...cardS, borderColor: C.red + "33" }}>
               <label style={{ ...lbl, color: C.red }}>{t("opts_danger")}</label>
@@ -3199,16 +3183,33 @@
     // ═══════════════════════════════════════════
     //  PROFILE CHIP
     // ═══════════════════════════════════════════
-    function ProfileChip({ st, myId }) {
+    function ProfileChip({ st, myId, onSignOut }) {
       const driver = (st?.drivers || []).find(d => d.id === myId);
+      const [clicks, setClicks] = React.useState(0);
+      const timerRef = React.useRef(null);
       if (!driver) return null;
+    
+      const handleClick = () => {
+        const next = clicks + 1;
+        setClicks(next);
+        clearTimeout(timerRef.current);
+        if (next >= 3) {
+          setClicks(0);
+          localStorage.removeItem(`${LOCK_KEY}-${myId}`);
+          onSignOut();
+        } else {
+          timerRef.current = setTimeout(() => setClicks(0), 800);
+        }
+      };
+    
       return (
-        <div style={{
+        <div onClick={handleClick} style={{
           position: "absolute", top: 10, right: 14, zIndex: 200,
           display: "flex", alignItems: "center", gap: 5,
+          cursor: "pointer", userSelect: "none",
         }}>
-          <span style={{ fontSize: 10 }}>👤</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.amber, fontFamily: "Barlow, sans-serif", opacity: 0.8 }}>{driver.name}</span>
+          <span style={{ fontSize: 10 }}>{clicks > 0 ? "🔓" : "👤"}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: clicks > 0 ? C.red : C.amber, fontFamily: "Barlow, sans-serif", opacity: 0.8 }}>{driver.name}{clicks > 0 ? ` (${3 - clicks}x)` : ""}</span>
         </div>
       );
     }
