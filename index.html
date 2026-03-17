@@ -178,7 +178,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v2.7 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v2.8 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -247,7 +247,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v2.7",
+        opts_version: "Caroninhas — Grupo v2.8",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -382,7 +382,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v2.7 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v2.8 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -451,7 +451,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v2.7",
+        opts_version: "Caroninhas Group v2.8",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -2302,7 +2302,35 @@
                         if (t.role === "motorista" && t.registeredBy === myId && (t.passengers||[]).some(p => p.driverId === dId)) return true;
                         return false;
                       }).sort((a,b) => b.date.localeCompare(a.date));
-                      const borderCol = isEven ? C.green + "44" : iOweThem ? C.red + "33" : C.amber + "33";
+                      // isCancelledChronological: same algorithm as TripCard but for Saldos
+                      // debtorId owes creditorId — is this specific trip cancelled by a ride going the other way?
+                      const scopeTrips = trips; // already filtered by scope above
+                      const isCancelledChron = (trip, debtorId, creditorId) => {
+                        // Credit: debtorId drove creditorId this scope
+                        let credit = 0;
+                        scopeTrips.forEach(wt => {
+                          if (wt.pendingConfirmation || wt.role !== "motorista" || wt.registeredBy !== debtorId) return;
+                          const ep = (wt.passengers||[]).find(p => p.driverId === creditorId);
+                          if (ep) credit += paxPrice(ep) * paxMult(ep, wt.direction);
+                        });
+                        if (credit <= 0) return false;
+                        // Debt trips: creditorId drove debtorId, sorted ASC
+                        const debtTrips = scopeTrips
+                          .filter(wt => !wt.pendingConfirmation && wt.role === "motorista"
+                            && wt.registeredBy === creditorId
+                            && (wt.passengers||[]).some(p => p.driverId === debtorId))
+                          .sort((a, b) => a.date.localeCompare(b.date));
+                        let remaining = credit;
+                        for (const dt of debtTrips) {
+                          const p = (dt.passengers||[]).find(p => p.driverId === debtorId);
+                          if (!p) continue;
+                          const amt = paxPrice(p) * paxMult(p, dt.direction);
+                          if (dt.id === trip.id) return remaining >= amt;
+                          remaining = Math.max(0, remaining - amt);
+                        }
+                        return false;
+                      };
+    
                       const isOpen = expanded[dId];
                       return (
                         <div key={dId} style={{ background: C.card, border: `1px solid ${borderCol}`, borderRadius: 14, overflow: "hidden" }}>
@@ -2382,15 +2410,18 @@
                                       myPaid = myPaxEntry.paid;
                                       myAmt = paxPrice(myPaxEntry) * paxMult(myPaxEntry, tr.direction);
                                     }
+                                    const cancelled = !myPaid && isCancelledChron(tr, myId, dId);
+                                    const rowColor = (myPaid || cancelled) ? C.muted : C.text;
                                     return (
                                       <div key={tr.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
-                                        <div style={{ fontSize: 13, color: myPaid ? C.muted : C.text }}>
+                                        <div style={{ fontSize: 13, color: rowColor }}>
                                           <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(tr.date, lang)}</span>{fmtFull(tr.date)} · {DIR(lang)[myDir]}
                                           {myPaid && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("paid_label_short")}</span>}
+                                          {cancelled && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
                                         </div>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: myPaid ? C.muted : C.red }}>{R(myAmt)}</span>
-                                          {!myPaid && tr.role === "passageiro" && <button onClick={() => markPaid(tr.id)} style={btnGreen}>{t("extrato_pay")}</button>}
+                                          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (myPaid || cancelled) ? C.muted : C.red }}>{R(myAmt)}</span>
+                                          {!myPaid && !cancelled && tr.role === "passageiro" && <button onClick={() => markPaid(tr.id)} style={btnGreen}>{t("extrato_pay")}</button>}
                                         </div>
                                       </div>
                                     );
@@ -2401,37 +2432,37 @@
                                 <div>
                                   <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>{t("drove_for", name)}</div>
                                   {theyOweTrips.map(trip => {
-                                    // dId owes myId: either dId registered passageiro trip with driverId=myId,
-                                    // or I (myId) drove and dId is listed as passenger
                                     if (trip.role === "passageiro" && trip.registeredBy === dId && trip.driverId === myId) {
                                       const x = trip.direction === "ambas" ? 2 : 1;
+                                      const cancelled = !trip.paid && isCancelledChron(trip, dId, myId);
                                       return (
                                         <div key={trip.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
-                                          <div style={{ fontSize: 13, color: trip.paid ? C.muted : C.text }}>
+                                          <div style={{ fontSize: 13, color: (trip.paid || cancelled) ? C.muted : C.text }}>
                                             <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(trip.date, lang)}</span>{fmtFull(trip.date)} · {DIR(lang)[trip.direction]}
                                             {trip.paid && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("received_label_short")}</span>}
+                                            {cancelled && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
                                           </div>
                                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: trip.paid ? C.muted : C.amber }}>{R(tripPrice(trip) * x)}</span>
-                                            <span style={{ fontSize: 11, color: trip.paid ? C.green : C.muted }}>{trip.paid ? t("received_label_short") : t("trip_pending_label")}</span>
+                                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (trip.paid || cancelled) ? C.muted : C.amber }}>{R(tripPrice(trip) * x)}</span>
                                           </div>
                                         </div>
                                       );
                                     }
-                                    // motorista trip by myId, find dId's passenger entry
                                     const pax = (trip.passengers || []).filter(p => p.driverId === dId);
                                     return pax.map(p => {
                                       const pm = paxMult(p, trip.direction);
                                       const pDir = p.direction || trip.direction;
+                                      const cancelled = !p.paid && isCancelledChron(trip, dId, myId);
                                       return (
                                         <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
-                                          <div style={{ fontSize: 13, color: p.paid ? C.muted : C.text }}>
+                                          <div style={{ fontSize: 13, color: (p.paid || cancelled) ? C.muted : C.text }}>
                                             <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(trip.date, lang)}</span>{fmtFull(trip.date)} · {DIR(lang)[pDir]}
                                             {p.paid && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("received_label_short")}</span>}
+                                            {cancelled && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
                                           </div>
                                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: p.paid ? C.muted : C.amber }}>{R(paxPrice(p) * pm)}</span>
-                                            {!p.paid && <button onClick={() => markPaxPaid(trip.id, p.id)} style={btnGreen}>{t("trip_received")}</button>}
+                                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (p.paid || cancelled) ? C.muted : C.amber }}>{R(paxPrice(p) * pm)}</span>
+                                            {!p.paid && !cancelled && <button onClick={() => markPaxPaid(trip.id, p.id)} style={btnGreen}>{t("trip_received")}</button>}
                                           </div>
                                         </div>
                                       );
