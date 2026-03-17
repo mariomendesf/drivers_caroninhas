@@ -178,7 +178,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v2.3 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v2.4 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -228,7 +228,7 @@
         opts_pix: "Chave Pix",
         opts_driver_n: (n) => `Motorista ${n}`,
         opts_driver_name_ph: (n) => `Nome do motorista ${n}`,
-        opts_save_drivers: "Salvar motoristas", opts_saved: "✓ Salvo!",
+        opts_save_drivers: "Salvar Pix", opts_saved: "✓ Salvo!",
         opts_car_cost: "⛽ Gastos com o carro",
         opts_car_cost_sub: "Valores padrão ao registrar como motorista.",
         opts_fuel: "Combustível", opts_toll: "Pedágio",
@@ -247,7 +247,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v2.3",
+        opts_version: "Caroninhas — Grupo v2.4",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -382,7 +382,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v2.3 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v2.4 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -429,7 +429,10 @@
         opts_pix: "Pix key",
         opts_driver_n: (n) => `Driver ${n}`,
         opts_driver_name_ph: (n) => `Driver ${n} name`,
-        opts_save_drivers: "Save drivers", opts_saved: "✓ Saved!",
+        badge_pending_trip: "Awaiting confirmation",
+        badge_confirmed_trip: "Confirmed trip",
+        driver_label: "Driver",
+        opts_save_drivers: "Save Pix", opts_saved: "✓ Saved!",
         opts_car_cost: "⛽ Car expenses",
         opts_car_cost_sub: "Default values when registering as driver.",
         opts_fuel: "Fuel", opts_toll: "Toll",
@@ -448,7 +451,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v2.3",
+        opts_version: "Caroninhas Group v2.4",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -1083,7 +1086,7 @@
     // ═══════════════════════════════════════════
     //  TRIP CARD
     // ═══════════════════════════════════════════
-    function TripCard({ trip, st, upd, showDelete, weekDn, readOnly, myId }) {
+    function TripCard({ trip, st, upd, showDelete, weekDn, allWeekDn, readOnly, myId }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const [open, setOpen] = useState(false);
@@ -1093,11 +1096,18 @@
       const driverDisplayName = driver?.name || trip.driverName || "?";
       const mult = trip.direction === "ambas" ? 2 : 1;
     
-      // A trip/passenger is "cancelled by mutual ride" when net balance with that
-      // driver is >= 0 (they owe me as much or more than I owe them, so no real debt)
+      // isCancelledByRide: for passageiro cards, use myId perspective (weekDn)
+      // For motorista cards, use the TRIP DRIVER's perspective (allWeekDn[trip.registeredBy])
       const dnFor = (dId) => weekDn && dId && weekDn[dId];
       const isCancelledByRide = (dId) => {
         const dn = dnFor(dId);
+        if (!dn) return false;
+        return netPending(dn) >= 0;
+      };
+      // For motorista pax badges: check from the driver's own perspective
+      const driverDn = allWeekDn?.[trip.registeredBy] || weekDn;
+      const isCancelledByRideForPax = (paxDriverId) => {
+        const dn = driverDn && paxDriverId && driverDn[paxDriverId];
         if (!dn) return false;
         return netPending(dn) >= 0;
       };
@@ -1242,7 +1252,7 @@
             </div>
             {(() => {
               const unpaidPax = pax.filter(p => !p.paid);
-              const allUnpaidCancelled = unpaidPax.length > 0 && unpaidPax.every(p => isCancelledByRide(p.driverId));
+              const allUnpaidCancelled = unpaidPax.length > 0 && unpaidPax.every(p => isCancelledByRideForPax(p.driverId));
               const effectivelyDone = received === total || allUnpaidCancelled;
               return (
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -1294,7 +1304,7 @@
                         </div>
                       </div>
                       {(() => {
-                        const pCancelled = !p.paid && isCancelledByRide(p.driverId);
+                        const pCancelled = !p.paid && isCancelledByRideForPax(p.driverId);
                         if (pCancelled) {
                           return (
                             <div style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, fontFamily: "Barlow, sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>
@@ -1352,6 +1362,12 @@
     
       const weekTrips = st.trips.filter(t => t.weekStart === viewWeek);
       const { driverNet, paxRecv, paxRecvd } = calcBalances(weekTrips, myId);
+      // allWeekDn: for each driver, their own balance perspective this week
+      // used by TripCard to correctly show "quitado com carona" for any viewer
+      const allWeekDn = {};
+      st.drivers.forEach(d => {
+        allWeekDn[d.id] = calcBalances(weekTrips, d.id).driverNet;
+      });
       const totalOwed    = Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n < 0 ? s + Math.abs(n) : s; }, 0);
       const totalPending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n > 0 ? s + n : s; }, 0);
       const sorted = [...weekTrips].sort((a, b) => b.date.localeCompare(a.date)); // includes pending
@@ -1629,7 +1645,7 @@
               <div>
                 <SectionLabel>{isCurrentWeek ? t("home_trips_this_week") : t("home_trips_week")}</SectionLabel>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {sorted.map(tr => <TripCard key={tr.id} trip={tr} st={st} upd={upd} showDelete={tr.registeredBy === myId || !tr.registeredBy} weekDn={driverNet} myId={myId} />)}
+                  {sorted.map(tr => <TripCard key={tr.id} trip={tr} st={st} upd={upd} showDelete={tr.registeredBy === myId || !tr.registeredBy} weekDn={driverNet} allWeekDn={allWeekDn} myId={myId} />)}
                 </div>
               </div>
             ) : (
@@ -3070,7 +3086,7 @@
               </button>
             </div>
     
-            <div style={{ ...cardS, borderColor: C.red + "33" }}>
+            {myId === ADMIN_ID && <div style={{ ...cardS, borderColor: C.red + "33" }}>
               <label style={{ ...lbl, color: C.red }}>{t("opts_danger")}</label>
               {!showDanger ? (
                 <button onClick={() => setShowDanger(true)} style={{
@@ -3110,7 +3126,7 @@
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
     
             <div style={{ ...cardS, textAlign: "center" }}>
               <div style={{ color: C.muted, fontSize: 12 }}>Caronas Mogi ↔ Campinas</div>
