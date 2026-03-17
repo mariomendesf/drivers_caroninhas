@@ -178,7 +178,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v2.5 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v2.6 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -247,7 +247,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v2.5",
+        opts_version: "Caroninhas — Grupo v2.6",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -382,7 +382,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v2.5 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v2.6 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -451,7 +451,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v2.5",
+        opts_version: "Caroninhas Group v2.6",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -1097,19 +1097,21 @@
       const mult = trip.direction === "ambas" ? 2 : 1;
     
       // isCancelledByRide: for passageiro cards, use myId perspective (weekDn)
-      // For motorista cards, use the TRIP DRIVER's perspective (allWeekDn[trip.registeredBy])
+      // For motorista cards pax badges: use the PAX's own perspective of the driver
+      // "quitado" = the driver owes the pax at least as much as the pax owes the driver
       const dnFor = (dId) => weekDn && dId && weekDn[dId];
       const isCancelledByRide = (dId) => {
         const dn = dnFor(dId);
         if (!dn) return false;
         return netPending(dn) >= 0;
       };
-      // For motorista pax badges: check from the driver's own perspective
-      const driverDn = allWeekDn?.[trip.registeredBy] || weekDn;
+      // For motorista pax badges: look up from the PAX's perspective at the trip driver
       const isCancelledByRideForPax = (paxDriverId) => {
-        const dn = driverDn && paxDriverId && driverDn[paxDriverId];
+        const paxDn = allWeekDn?.[paxDriverId];
+        if (!paxDn) return false;
+        const dn = paxDn[trip.registeredBy];
         if (!dn) return false;
-        return netPending(dn) >= 0;
+        return netPending(dn) >= 0; // pax's view: driver owes pax >= pax owes driver
       };
     
       const deleteTrip = (e) => { e.stopPropagation(); const msg = lang === "en" ? "Delete this trip?" : "Apagar esta viagem?"; if (window.confirm(msg)) upd({ ...st, trips: st.trips.filter(t => t.id !== trip.id) }); };
