@@ -53,6 +53,7 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    
     // ═══════════════════════════════════════════
     //  UTILS
     // ═══════════════════════════════════════════
@@ -178,7 +179,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v2.9.2 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v3.0 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -247,7 +248,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v2.9.2",
+        opts_version: "Caroninhas — Grupo v3.0",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -382,7 +383,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v2.9.2 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v3.0 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -451,7 +452,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v2.9.2",
+        opts_version: "Caroninhas Group v3.0",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -1712,7 +1713,10 @@
       const others = otherDrivers; // keep alias for existing code
       const mult = dir === "ambas" ? 2 : 1;
     
-      const addPax = () => { if (pax.length < 4) setPax(prev => [...prev, { id: uid(), name: "", driverId: "", paid: false, price: String(PRICE), direction: null }]); };
+      const paxIda   = pax.filter(p => { const d = p.direction || dir; return d === "ida"   || d === "ambas"; }).length;
+      const paxVolta = pax.filter(p => { const d = p.direction || dir; return d === "volta" || d === "ambas"; }).length;
+      const canAddPax = paxIda < 4 || paxVolta < 4;
+      const addPax = () => { if (canAddPax) setPax(prev => [...prev, { id: uid(), name: "", driverId: "", paid: false, price: String(PRICE), direction: null }]); };
       const remPax = (id) => setPax(prev => prev.filter(p => p.id !== id));
       const updPax = (id, field, val) => setPax(prev => prev.map(p => p.id === id ? { ...p, [field]: val } : p));
     
@@ -1787,7 +1791,13 @@
             ...(note.trim() ? { note: note.trim().slice(0, 35) } : {}),
           };
         }
-        const duplicate = st.trips.some(t => t.date === date && !t.pendingConfirmation && t.role === "motorista");
+        // Allow multiple trips same day only if a different driver is already registered
+        const effectiveDriver = trip.driverOwnerId || trip.registeredBy;
+        const duplicate = st.trips.some(t => {
+          if (t.role !== "motorista" || t.date !== date) return false;
+          const tDriver = t.driverOwnerId || t.registeredBy;
+          return tDriver === effectiveDriver; // same driver = duplicate
+        });
         if (duplicate) {
           setToast(t("add_duplicate"));
           return;
@@ -2069,12 +2079,12 @@
                       </div>
                     );
                   })}
-                  {pax.length < 4
+                  {canAddPax
                     ? <button onClick={addPax} style={{ background: "transparent", border: `1px dashed ${C.border}`, borderRadius: 9, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "Barlow, sans-serif" }}>
                         {t("add_add_pax")}
                       </button>
                     : <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "8px", border: `1px dashed ${C.border}`, borderRadius: 9 }}>
-                        {t("add_pax_limit")}
+                        {lang === "en" ? "Max 4 passengers per stretch" : "Máximo 4 passageiros por trecho"}
                       </div>
                   }
                 </div>
@@ -3479,6 +3489,10 @@
         </div>
       );
     }
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+      
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
