@@ -11,7 +11,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <!-- FIREBASE CONFIG — substitua os valores abaixo com suas credenciais -->
+  <!-- FIREBASE CONFIG -->
   <script>
     const firebaseConfig = {
       apiKey:            "COLE_AQUI",
@@ -164,7 +164,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v3.1.3 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v3.1.4 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -233,7 +233,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v3.1.3",
+        opts_version: "Caroninhas — Grupo v3.1.4",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -368,7 +368,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v3.1.3 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v3.1.4 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -437,7 +437,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v3.1.3",
+        opts_version: "Caroninhas Group v3.1.4",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -1934,9 +1934,16 @@
                               style={{ ...inp, flex: 1, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", padding: "8px 10px" }}
                             >
                               <option value="">{t("add_pax_select_ph")}</option>
-                              {st.drivers.filter(d => d.id !== myId && d.name).map(d => (
-                                <option key={d.id} value={d.id}>{d.name}</option>
-                              ))}
+                              {(() => {
+                                const usedIds = new Set([
+                                  driverId,                                    // trip driver
+                                  myId,                                        // self (registering passenger)
+                                  ...pax.filter(px => px.id !== p.id && px.driverId && px.driverId !== "__custom__").map(px => px.driverId)
+                                ]);
+                                return st.drivers.filter(d => d.name && !usedIds.has(d.id)).map(d => (
+                                  <option key={d.id} value={d.id}>{d.name}</option>
+                                ));
+                              })()}
                               <option value="__custom__">{t("add_pax_other")}</option>
                             </select>
                             {pax.length > 0 && (
@@ -2009,7 +2016,15 @@
                               style={{ ...inp, flex: 1, background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", padding: "9px 10px" }}
                             >
                               <option value="">{t("add_pax_select_ph")}</option>
-                              {others.map(d => <option key={d.id} value={d.id}>{d.name} 🚗</option>)}
+                              {(() => {
+                                const usedIds = new Set([
+                                  myId,
+                                  ...pax.filter(px => px.id !== p.id && px.driverId && px.driverId !== "__custom__").map(px => px.driverId)
+                                ]);
+                                return others.filter(d => !usedIds.has(d.id)).map(d => (
+                                  <option key={d.id} value={d.id}>{d.name} 🚗</option>
+                                ));
+                              })()}
                               <option value="__custom__">{t("add_pax_other")}</option>
                             </select>
                           ) : (
