@@ -1,55 +1,25 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Caroninhas" />
-  <meta name="theme-color" content="#0E0D12" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
-  <title>Caroninhas</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Caroninhas — Grupo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: #0E0D12; }
-    body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
-    input, select, button, textarea { font-family: inherit; }
-    select { -webkit-appearance: auto; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0E0D12; color: #F0EEF6; font-family: Barlow, sans-serif; }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    select { -webkit-appearance: none; appearance: none; }
   </style>
 </head>
 <body>
   <div id="root"></div>
-
-  <!-- Firebase v9 compat (loads synchronously before React) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script>
-    try {
-      firebase.initializeApp({
-        apiKey: "AIzaSyAdZh7DEfxlK1VHyiB_3UOpAM5-eCaf0_0",
-        authDomain: "caroninhas-group.firebaseapp.com",
-        projectId: "caroninhas-group",
-        storageBucket: "caroninhas-group.firebasestorage.app",
-        messagingSenderId: "972351273413",
-        appId: "1:972351273413:web:349ef5744b56cb207b33ac"
-      });
-      window.__db = firebase.firestore();
-      console.log("[caronas] Firebase initialized OK");
-    } catch(e) {
-      console.error("[caronas] Firebase init FAILED:", e);
-    }
-  </script>
-
-  <!-- React -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
@@ -3489,9 +3459,6 @@
         </div>
       );
     }
-    
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
       
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
