@@ -11,6 +11,28 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <!-- ================================================================
+       FIREBASE CONFIG — preencha com suas credenciais do Firebase Console
+       ================================================================ -->
+  <script>
+    
+    const firebaseConfig = {
+     apiKey: "AIzaSyAdZh7DEfxlK1VHyiB_3UOpAM5-eCaf0_0",
+     authDomain: "caroninhas-group.firebaseapp.com",
+     projectId: "caroninhas-group",
+     storageBucket: "caroninhas-group.firebasestorage.app",
+     messagingSenderId: "972351273413",
+     appId: "1:972351273413:web:349ef5744b56cb207b33ac",
+     measurementId: "G-DSZQ3N6LB3"
+};
+    try {
+      const app = firebase.initializeApp(firebaseConfig);
+      window.__db = firebase.firestore(app);
+      console.log("[caroninhas] Firebase initialized OK");
+    } catch(e) {
+      console.error("[caroninhas] Firebase init failed:", e);
+    }
+  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0E0D12; color: #F0EEF6; font-family: Barlow, sans-serif; }
