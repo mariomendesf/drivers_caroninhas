@@ -164,7 +164,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v3.1.4 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v3.1.5 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -233,7 +233,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v3.1.4",
+        opts_version: "Caroninhas — Grupo v3.1.5",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -368,7 +368,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v3.1.4 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v3.1.5 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -437,7 +437,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v3.1.4",
+        opts_version: "Caroninhas Group v3.1.5",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -1703,7 +1703,11 @@
     
       const paxIda   = pax.filter(p => { const d = p.direction || dir; return d === "ida"   || d === "ambas"; }).length;
       const paxVolta = pax.filter(p => { const d = p.direction || dir; return d === "volta" || d === "ambas"; }).length;
-      const canAddPax = paxIda < 4 || paxVolta < 4;
+      // canAddPax: a new row starts with direction=null (inherits trip dir)
+      // So it counts toward whichever stretches the trip dir covers
+      const canAddPax = dir === "ambas" ? (paxIda < 4 && paxVolta < 4)
+                      : dir === "ida"   ? paxIda < 4
+                      :                   paxVolta < 4;
       const addPax = () => { if (canAddPax) setPax(prev => [...prev, { id: uid(), name: "", driverId: "", paid: false, price: String(PRICE), direction: null }]); };
       const remPax = (id) => setPax(prev => prev.filter(p => p.id !== id));
       const updPax = (id, field, val) => setPax(prev => prev.map(p => p.id === id ? { ...p, [field]: val } : p));
@@ -1916,11 +1920,22 @@
                           {t("including_you")}
                         </div>
                       </div>
-                      {pax.length < 3 && (
-                        <button onClick={addPax} style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
-                          + {lang === "en" ? "Add" : "Adicionar"}
-                        </button>
-                      )}
+                      {(() => {
+                        // Count stretch occupancy including self
+                        const selfIda   = myDir === "ida"   || myDir === "ambas" ? 1 : 0;
+                        const selfVolta = myDir === "volta"  || myDir === "ambas" ? 1 : 0;
+                        const pOccIda   = selfIda   + pax.filter(p => { const d = p.direction || "ambas"; return d === "ida"   || d === "ambas"; }).length;
+                        const pOccVolta = selfVolta + pax.filter(p => { const d = p.direction || "ambas"; return d === "ida"   || d === "ambas"; }).length;
+                        // New pax defaults to ambas → counts for both
+                        const canAdd = pOccIda < 4 && pOccVolta < 4;
+                        return canAdd ? (
+                          <button onClick={addPax} style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                            + {lang === "en" ? "Add" : "Adicionar"}
+                          </button>
+                        ) : (
+                          <div style={{ fontSize: 10, color: C.muted }}>{lang === "en" ? "Max 4 per stretch" : "Máx. 4/trecho"}</div>
+                        );
+                      })()}
                     </div>
                     {pax.map((p, i) => {
                       const pp = parseFloat(p.price) || PRICE;
