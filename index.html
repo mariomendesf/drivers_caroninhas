@@ -149,7 +149,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v3.0 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v3.1 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -218,7 +218,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v3.0",
+        opts_version: "Caroninhas — Grupo v3.1",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -353,7 +353,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v3.0 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v3.1 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -422,7 +422,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v3.0",
+        opts_version: "Caroninhas Group v3.1",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -1928,6 +1928,7 @@
                           {p.driverId === "__custom__" && (
                             <input value={p.name} onChange={e => updPax(p.id, "name", e.target.value)}
                               placeholder={t("add_pax_name_free_ph")}
+                              autoFocus
                               style={{ ...inp, background: "transparent", border: `1px solid ${C.border}`, marginBottom: 6 }} />
                           )}
                           {/* Direction per pax */}
@@ -2147,14 +2148,26 @@
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const [view, setView]     = useState(initialView || "saldos");
-      const [scope, setScope]   = useState("week");
       const [expanded, setExpanded] = useState({});
       const [copiedPix, setCopiedPix] = useState(null);
       const thisWeek = getMonday(todayStr());
+      const thisMonth = todayStr().slice(0, 7); // "YYYY-MM"
     
-      const trips = scope === "week"
-        ? st.trips.filter(t => t.weekStart === thisWeek && !t.pendingConfirmation)
-        : st.trips.filter(t => !t.pendingConfirmation);
+      // trips for balance calculation:
+      // - All confirmed trips from current month
+      // - Plus confirmed trips from prior months that still have unpaid amounts
+      const allConfirmed = st.trips.filter(t => !t.pendingConfirmation);
+      const trips = allConfirmed.filter(t => {
+        const mon = t.date.slice(0, 7);
+        if (mon === thisMonth) return true; // always show current month
+        // Prior month: include only if there are pending amounts involving myId
+        if (t.role === "passageiro" && t.registeredBy === myId && !t.paid) return true;
+        if (t.role === "motorista" && t.registeredBy === myId &&
+            (t.passengers||[]).some(p => !p.paid && p.driverId)) return true;
+        if (t.role === "motorista" && t.registeredBy !== myId &&
+            (t.passengers||[]).some(p => p.driverId === myId && !p.paid)) return true;
+        return false;
+      });
     
       const { driverNet, paxRecv, paxRecvd } = calcBalances(trips, myId);
       const dMap = Object.fromEntries(st.drivers.map(d => [d.id, d]));
@@ -2168,7 +2181,6 @@
       const cardS    = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 18px" };
       const btnGreen = { background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 7, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: 600 };
       const toggleExp = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
-      // Sort by st.drivers order so Esta semana and Geral show same ordering
       const driverOrder = Object.fromEntries(st.drivers.map((d, i) => [d.id, i]));
       const allDriverIds = Object.keys(driverNet).sort((a, b) => (driverOrder[a] ?? 99) - (driverOrder[b] ?? 99));
     
@@ -2218,15 +2230,6 @@
         }}>{label}</button>
       );
     
-      const scopeBtn = (val, label) => (
-        <button key={val} onClick={() => setScope(val)} style={{
-          background: scope === val ? C.amber : C.dim,
-          color: scope === val ? "#000" : C.muted,
-          border: "none", borderRadius: 20, padding: "7px 18px",
-          fontSize: 13, fontWeight: scope === val ? 700 : 400,
-          cursor: "pointer", fontFamily: "Barlow, sans-serif",
-        }}>{label}</button>
-      );
     
       return (
         <div>
@@ -2238,10 +2241,6 @@
           {/* ── SALDOS VIEW ─────────────────────────────────────────────── */}
           {view === "saldos" && (
             <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "flex", gap: 6 }}>
-                {scopeBtn("week", t("saldos_this_week"))}
-                {scopeBtn("all", t("saldos_all"))}
-              </div>
     
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <StatCard label={t("saldos_net_owe")} value={R(totalIOwePending)} color={totalIOwePending > 0 ? C.red : C.green} />
@@ -2260,32 +2259,23 @@
                       const isEven = net === 0;
                       const theyOweMe = net > 0;
                       const iOweThem = net < 0;
-                      // iOweTrips: trips where I (myId) owe dId
-                      //   a) I registered a passageiro trip with driverId=dId
-                      //   b) dId drove (registeredBy=dId) and I'm listed as passenger
-                      const iOweTrips = st.trips.filter(t => {
+                      // iOweTrips: trips where I (myId) owe dId — use trips (month filter)
+                      const iOweTrips = trips.filter(t => {
                         if (t.pendingConfirmation) return false;
-                        const inScope = scope === "all" || t.weekStart === thisWeek;
-                        if (!inScope) return false;
                         if (t.role === "passageiro" && t.registeredBy === myId && t.driverId === dId) return true;
                         if (t.role === "motorista" && t.registeredBy === dId && (t.passengers||[]).some(p => p.driverId === myId)) return true;
                         return false;
                       }).sort((a,b) => b.date.localeCompare(a.date));
     
-                      // theyOweTrips: trips where dId owes me (myId)
-                      //   a) dId registered a passageiro trip with driverId=myId
-                      //   b) I drove (registeredBy=myId) and dId is listed as passenger
-                      const theyOweTrips = st.trips.filter(t => {
+                      // theyOweTrips: trips where dId owes me — use trips (month filter)
+                      const theyOweTrips = trips.filter(t => {
                         if (t.pendingConfirmation) return false;
-                        const inScope = scope === "all" || t.weekStart === thisWeek;
-                        if (!inScope) return false;
                         if (t.role === "passageiro" && t.registeredBy === dId && t.driverId === myId) return true;
                         if (t.role === "motorista" && t.registeredBy === myId && (t.passengers||[]).some(p => p.driverId === dId)) return true;
                         return false;
                       }).sort((a,b) => b.date.localeCompare(a.date));
-                      // isCancelledChronological: same algorithm as TripCard but for Saldos
-                      // debtorId owes creditorId — is this specific trip cancelled by a ride going the other way?
-                      const scopeTrips = trips; // already filtered by scope above
+                      // isCancelledChronological: uses full confirmed history for cross-week/month credit
+                      const scopeTrips = allConfirmed;
                       const isCancelledChron = (trip, debtorId, creditorId) => {
                         // Credit: debtorId drove creditorId this scope
                         let credit = 0;
@@ -2516,10 +2506,10 @@
                 <div style={{ ...cardS, textAlign: "center", padding: "32px 20px" }}>
                   <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
                   <div style={{ color: C.green, fontSize: 15, fontWeight: 600 }}>{t("all_clear")}</div>
-                  <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>{lang === "en" ? (scope === "week" ? "No pending amounts this week." : "No pending amounts overall.") : `Nenhum valor pendente ${scope === "week" ? "nesta semana" : "em geral"}.`}</div>
+                  <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>{lang === "en" ? "No pending amounts this month." : "Nenhum valor pendente neste mês."}</div>
                 </div>
               )}
-              {trips.length === 0 && <EmptyState icon="💸" text={scope === "week" ? t("no_trips_week") : t("no_trips_any")} />}
+              {trips.length === 0 && <EmptyState icon="💸" text={t("no_trips_any")} />}
             </div>
           )}
     
