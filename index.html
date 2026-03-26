@@ -11,16 +11,14 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <!-- FIREBASE CONFIG -->
   <script>
     const firebaseConfig = {
-     apiKey: "AIzaSyAdZh7DEfxlK1VHyiB_3UOpAM5-eCaf0_0",
-     authDomain: "caroninhas-group.firebaseapp.com",
-     projectId: "caroninhas-group",
-     storageBucket: "caroninhas-group.firebasestorage.app",
-     messagingSenderId: "972351273413",
-     appId: "1:972351273413:web:349ef5744b56cb207b33ac",
-     measurementId: "G-DSZQ3N6LB3"
+      apiKey: "AIzaSyAdZh7DEfxlK1VHyiB_3UOpAM5-eCaf0_0",
+      authDomain: "caroninhas-group.firebaseapp.com",
+      projectId: "caroninhas-group",
+      storageBucket: "caroninhas-group.firebasestorage.app",
+      messagingSenderId: "972351273413",
+      appId: "1:972351273413:web:349ef5744b56cb207b33ac"
     };
     try {
       const app = firebase.initializeApp(firebaseConfig);
@@ -116,7 +114,7 @@
         add_car_cost: "⛽ Gastos com o carro", add_car_cost_sub: "Combustível + pedágio",
         add_include_car_cost: "Incluir custo do carro",
         add_fuel: "Combustível", add_toll: "Pedágio",
-        add_car_cost_paid: "Já paguei o combustível",
+        add_car_cost_paid: "Já paguei",
         add_car_total: (v) => `Total carro: ${v}`,
         add_note: "Observação", add_note_ph: "Ex: carro diferente, saída atrasada…",
         add_chars_left: (n) => `${n} caracteres restantes`,
@@ -165,7 +163,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v3.3.3 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v3.4 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -234,7 +232,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v3.3.3",
+        opts_version: "Caroninhas — Grupo v3.4",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -322,7 +320,7 @@
         add_car_cost: "⛽ Car expenses", add_car_cost_sub: "Fuel + toll",
         add_include_car_cost: "Include car cost",
         add_fuel: "Fuel", add_toll: "Toll",
-        add_car_cost_paid: "Already paid fuel",
+        add_car_cost_paid: "Already paid",
         add_car_total: (v) => `Car total: ${v}`,
         add_note: "Note", add_note_ph: "E.g. different car, late departure…",
         add_chars_left: (n) => `${n} characters left`,
@@ -369,7 +367,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v3.3.3 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v3.4 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -438,7 +436,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v3.3.3",
+        opts_version: "Caroninhas Group v3.4",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -2639,7 +2637,7 @@
                             ? (totalCarDebt > 0
                               ? <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: "#F5A623" }}>{t("pending_short", R(totalCarDebt))}</span>
                               : <span style={{ color: C.green, fontSize: 13, fontWeight: 600 }}>{lang === "en" ? "✓ All paid" : "✓ Tudo pago"}</span>)
-                            : <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: "#F5A623" }}>{t("pending_short", R(Object.values(carExpenses).reduce((s,v)=>s+v.total,0)))}</span>
+                            : <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.red }}>{R(Object.values(carExpenses).reduce((s,v)=>s+v.total,0))}</span>
                           }
                       </div>
                     </div>
