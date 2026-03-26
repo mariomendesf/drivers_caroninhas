@@ -165,7 +165,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v3.1.7 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v3.2 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -234,7 +234,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v3.1.7",
+        opts_version: "Caroninhas — Grupo v3.2",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -369,7 +369,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v3.1.7 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v3.2 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -438,7 +438,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v3.1.7",
+        opts_version: "Caroninhas Group v3.2",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -1721,6 +1721,10 @@
       const totalCarCost  = parsedCarGas + parsedCarToll;
       const paxValid = p => p.name.trim() || (p.driverId && p.driverId !== "" && p.driverId !== "__custom__");
       const isCustomDriver = driverId === "__other__";
+      // Force dir=ambas unless it's a custom (avulso) driver trip
+      React.useEffect(() => {
+        if (!isCustomDriver) setDir("ambas");
+      }, [isCustomDriver, role]);
       const canSave = role === "passageiro"
         ? (isCustomDriver ? driverCustomName.trim().length > 0 : !!driverId)
         : (pax.some(paxValid) || includeCarCost);
@@ -1823,20 +1827,22 @@
               <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
             </div>
     
-            {/* Direction */}
-            <div style={cardS}>
-              <label style={lbl}>{t("add_leg")}</label>
-              <div style={{ display: "flex", gap: 6 }}>
-                <Pill label={t("add_leg_there")} active={dir === "ida"} onClick={() => setDir("ida")} />
-                <Pill label={t("add_leg_back")} active={dir === "volta"} onClick={() => setDir("volta")} />
-                <Pill label={t("add_leg_both")} active={dir === "ambas"} onClick={() => setDir("ambas")} />
-              </div>
-              {dir === "ambas" && (
-                <div style={{ marginTop: 10, color: C.amber, fontSize: 12 }}>
-                  {t("add_leg_both_note", R(PRICE * 2))}
+            {/* Direction — only shown for custom (avulso) driver; group trips are always ambas */}
+            {role === "passageiro" && isCustomDriver && (
+              <div style={cardS}>
+                <label style={lbl}>{t("add_leg")}</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <Pill label={t("add_leg_there")} active={dir === "ida"} onClick={() => setDir("ida")} />
+                  <Pill label={t("add_leg_back")} active={dir === "volta"} onClick={() => setDir("volta")} />
+                  <Pill label={t("add_leg_both")} active={dir === "ambas"} onClick={() => setDir("ambas")} />
                 </div>
-              )}
-            </div>
+                {dir === "ambas" && (
+                  <div style={{ marginTop: 10, color: C.amber, fontSize: 12 }}>
+                    {t("add_leg_both_note", R(PRICE * 2))}
+                  </div>
+                )}
+              </div>
+            )}
     
             {/* Role */}
             <div style={cardS}>
