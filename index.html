@@ -13,7 +13,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <!-- FIREBASE CONFIG -->
   <script>
-    const firebaseConfig = {
+   const firebaseConfig = {
      apiKey: "AIzaSyAdZh7DEfxlK1VHyiB_3UOpAM5-eCaf0_0",
      authDomain: "caroninhas-group.firebaseapp.com",
      projectId: "caroninhas-group",
@@ -165,7 +165,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v3.3 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v3.3.2 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -234,7 +234,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v3.3",
+        opts_version: "Caroninhas — Grupo v3.3.2",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -369,7 +369,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v3.3 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v3.3.2 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -438,7 +438,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v3.3",
+        opts_version: "Caroninhas Group v3.3.2",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -2632,15 +2632,7 @@
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ color: C.muted, fontSize: 11, fontWeight: 600, letterSpacing: 1.3, textTransform: "uppercase" }}>{t("extrato_mom")}</div>
-                        {myId === ADMIN_ID && st.pixMae && (() => {
-                          const [copied, setCopied] = React.useState(false);
-                          const copy = () => {
-                            const txt = st.pixMae;
-                            if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(() => { setCopied(true); setTimeout(()=>setCopied(false),2000); });
-                            else { const ta=document.createElement("textarea"); ta.value=txt; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); setCopied(true); setTimeout(()=>setCopied(false),2000); }
-                          };
-                          return <button onClick={copy} style={{ background: copied ? C.greenDim : C.dim, border: `1px solid ${copied ? C.green+"44" : C.border}`, color: copied ? C.green : C.muted, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{copied ? "✓ Pix copiado" : "Copiar Pix mãe"}</button>;
-                        })()}
+                        {myId === ADMIN_ID && st.pixMae && <CopyPixMaeBtn pix={st.pixMae} />}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {myId === ADMIN_ID
@@ -2686,7 +2678,6 @@
                                   return (
                                     <div key={tr.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
                                       <div>
-                                        <div>
                                         <div style={{ fontSize: 13, color: myId === ADMIN_ID ? (tr.carCost.paid ? C.muted : C.text) : C.text }}><span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(tr.date, lang)}</span>{fmtFull(tr.date)} · {DIR(lang)[tr.direction]}</div>
                                         <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
                                           ⛽ {R(tr.carCost.gas)} + 🛣️ {R(tr.carCost.toll)}
@@ -2925,6 +2916,61 @@
     // ═══════════════════════════════════════════
     //  OPCOES SCREEN
     // ═══════════════════════════════════════════
+    
+    function CopyPixMaeBtn({ pix }) {
+      const [copied, setCopied] = React.useState(false);
+      const copy = () => {
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(pix).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+        } else {
+          const ta = document.createElement("textarea"); ta.value = pix;
+          ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta);
+          ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+          setCopied(true); setTimeout(() => setCopied(false), 2000);
+        }
+      };
+      return (
+        <button onClick={copy} style={{ background: copied ? C.greenDim : C.dim, border: `1px solid ${copied ? C.green+"44" : C.border}`, color: copied ? C.green : C.muted, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+          {copied ? "✓ Pix copiado" : "Copiar Pix mãe"}
+        </button>
+      );
+    }
+    
+    function PixMaeCard({ st, upd, inp, lbl, cardS }) {
+      const [mae, setMae] = React.useState(st.pixMae || "");
+      const [saved, setSaved] = React.useState(false);
+      const [copied, setCopied] = React.useState(false);
+      const save = () => { upd({ ...st, pixMae: mae.trim() }); setSaved(true); setTimeout(() => setSaved(false), 1500); };
+      const copy = () => {
+        const txt = mae.trim();
+        if (!txt) return;
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(txt).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+        } else {
+          const ta = document.createElement("textarea"); ta.value = txt;
+          ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta);
+          ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+          setCopied(true); setTimeout(() => setCopied(false), 2000);
+        }
+      };
+      return (
+        <div style={cardS}>
+          <label style={lbl}>Pix da mãe</label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input value={mae} onChange={e => { setMae(e.target.value); setSaved(false); }}
+              placeholder="Chave Pix"
+              style={{ ...inp, flex: 1, padding: "9px 12px", fontSize: 14 }} />
+            {mae.trim() && <button onClick={copy} style={{ background: copied ? C.greenDim : C.dim, border: `1px solid ${copied ? C.green+"44" : C.border}`, color: copied ? C.green : C.muted, borderRadius: 8, padding: "10px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>
+              {copied ? "✓ Copiado" : "Copiar"}
+            </button>}
+          </div>
+          <button onClick={save} style={{ marginTop: 10, background: saved ? C.greenDim : C.amberDim, color: saved ? C.green : C.amber, border: `1px solid ${saved ? C.green+"44" : C.amber+"44"}`, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%", fontFamily: "Barlow, sans-serif" }}>
+            {saved ? "✓ Salvo" : "Salvar"}
+          </button>
+        </div>
+      );
+    }
+    
     function Opcoes({ st, upd, myId, onSignOut }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
@@ -3077,42 +3123,7 @@
               </div>
             </div>
     
-            {myId === ADMIN_ID && (() => {
-              const [mae, setMae] = React.useState(st.pixMae || "");
-              const [maeSaved, setMaeSaved] = React.useState(false);
-              const [maeCopied, setMaeCopied] = React.useState(false);
-              const saveMae = () => { upd({ ...st, pixMae: mae.trim() }); setMaeSaved(true); setTimeout(() => setMaeSaved(false), 1500); };
-              const copyMae = () => {
-                const copyText = mae.trim();
-                if (!copyText) return;
-                if (navigator.clipboard?.writeText) {
-                  navigator.clipboard.writeText(copyText).then(() => { setMaeCopied(true); setTimeout(() => setMaeCopied(false), 2000); });
-                } else {
-                  const ta = document.createElement("textarea");
-                  ta.value = copyText;
-                  ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
-                  document.body.appendChild(ta); ta.focus(); ta.select();
-                  document.execCommand("copy"); document.body.removeChild(ta);
-                  setMaeCopied(true); setTimeout(() => setMaeCopied(false), 2000);
-                }
-              };
-              return (
-                <div style={cardS}>
-                  <label style={lbl}>Pix da mãe</label>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input value={mae} onChange={e => { setMae(e.target.value); setMaeSaved(false); }}
-                      placeholder="Chave Pix"
-                      style={{ ...inp, flex: 1, padding: "9px 12px", fontSize: 14 }} />
-                    {mae.trim() && <button onClick={copyMae} style={{ background: maeCopied ? C.greenDim : C.dim, border: `1px solid ${maeCopied ? C.green+"44" : C.border}`, color: maeCopied ? C.green : C.muted, borderRadius: 8, padding: "10px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>
-                      {maeCopied ? "✓ Copiado" : "Copiar"}
-                    </button>}
-                  </div>
-                  <button onClick={saveMae} style={{ marginTop: 10, background: maeSaved ? C.greenDim : C.amberDim, color: maeSaved ? C.green : C.amber, border: `1px solid ${maeSaved ? C.green+"44" : C.amber+"44"}`, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "100%", fontFamily: "Barlow, sans-serif" }}>
-                    {maeSaved ? "✓ Salvo" : "Salvar"}
-                  </button>
-                </div>
-              );
-            })()}
+            {myId === ADMIN_ID && <PixMaeCard st={st} upd={upd} inp={inp} lbl={lbl} cardS={cardS} />}
     
             <div style={{ ...cardS, borderColor: "#7C5C2E55" }}>
               <label style={{ ...lbl, color: "#F5A623" }}>{t("opts_car_cost")}</label>
