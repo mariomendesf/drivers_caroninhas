@@ -167,7 +167,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v4.0 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v4.0.1 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -236,7 +236,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v4.0",
+        opts_version: "Caroninhas — Grupo v4.0.1",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -2526,8 +2526,8 @@
                                             {settled === "partial" && <span style={{ color: C.amber, marginLeft: 6, fontSize: 11 }}>{t("trip_partial_ride")}</span>}
                                           </div>
                                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (p.paid || cancelled) ? C.muted : C.amber }}>{R(paxPrice(p) * pm)}</span>
-                                            {!p.paid && !cancelled && <button onClick={() => markPaxPaid(trip.id, p.id)} style={btnGreen}>{t("trip_received")}</button>}
+                                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (p.paid || settled === true) ? C.muted : settled === "partial" ? C.amber : C.amber }}>{R(paxPrice(p) * pm)}</span>
+                                            {!p.paid && !settled && <button onClick={() => markPaxPaid(trip.id, p.id)} style={btnGreen}>{t("trip_received")}</button>}
                                           </div>
                                         </div>
                                       );
