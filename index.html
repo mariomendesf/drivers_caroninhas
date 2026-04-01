@@ -125,6 +125,10 @@
         trip_no_passengers: "Nenhum passageiro",
         trip_paid_label: "pago", trip_pending_label: "pendente",
         trip_quitado: "quitado c/ carona ✓",
+        trip_partial_ride: "parcialmente quitado c/ carona",
+        settle_with_ride: "Quitar c/ carona",
+        ride_credits: (n) => `${n} trecho${n !== 1 ? "s" : ""} de crédito`,
+        ride_credits_with: (n, name) => `${n} trecho${n !== 1 ? "s" : ""} com ${name}`,
         trip_mark_paid: "Marcar pago",  trip_undo_paid: "✓ Pago",
         trip_mark_received: "Marcar recebido", trip_received: "✓ Recebido",
         trip_quitado_btn: "🤝 Quitado c/ carona",
@@ -163,7 +167,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v3.4 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v4.0 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -232,7 +236,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v3.4",
+        opts_version: "Caroninhas — Grupo v4.0",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -330,6 +334,10 @@
         trip_no_passengers: "No passengers",
         trip_paid_label: "paid", trip_pending_label: "pending",
         trip_quitado: "settled by ride ✓",
+        trip_partial_ride: "partial ride settlement",
+        settle_with_ride: "Settle with ride",
+        ride_credits: (n) => `${n} stretch${n !== 1 ? "es" : ""} credit`,
+        ride_credits_with: (n, name) => `${n} stretch${n !== 1 ? "es" : ""} credit with ${name}`,
         trip_mark_paid: "Mark paid", trip_undo_paid: "✓ Paid",
         trip_mark_received: "Mark received", trip_received: "✓ Received",
         trip_quitado_btn: "🤝 Settled by ride",
@@ -367,7 +375,7 @@
         your_pix_ph: "Your pix (optional)",
         other_pix_ph: "CPF, email, phone...",
         car_cost_sub2: "Default values when registering as driver.",
-        price_per_stretch_label: (v) => `v3.4 · Price per stretch: ${v}`,
+        price_per_stretch_label: (v) => `v4.0 · Price per stretch: ${v}`,
         saldos_title: "Balances",
         saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
         saldos_this_week: "This week", saldos_all: "All time",
@@ -436,7 +444,7 @@
         opts_delete_pass_ph: "Password",
         opts_delete_wrong: "Wrong password",
         opts_delete_do: "Delete everything",
-        opts_version: "Caroninhas Group v3.4",
+        opts_version: "Caroninhas Group v4.0",
         opts_firebase_ok: "☁️ Firebase connected",
         opts_firebase_off: "⚠️ Firebase offline — data only on this device",
         lock_subtitle: "Grupo de caronas",
@@ -648,7 +656,7 @@
             // Someone registered that they rode with me → they owe me
             ensure(t.registeredBy);
             driverNet[t.registeredBy].theyOwe += amt;
-            if (t.paid) driverNet[t.registeredBy].theyOwePaid += amt;
+            if (t.paid || t.settledByRide) driverNet[t.registeredBy].theyOwePaid += amt;
           }
         } else { // motorista
           const driverOf = t.registeredBy;
@@ -659,7 +667,7 @@
               if (p.driverId && p.driverId !== "__custom__") {
                 ensure(p.driverId);
                 driverNet[p.driverId].theyOwe += amt;
-                if (p.paid) driverNet[p.driverId].theyOwePaid += amt;
+                if (p.paid || p.settledByRide) driverNet[p.driverId].theyOwePaid += amt;
               } else {
                 paxRecv += amt;
                 if (p.paid) paxRecvd += amt;
@@ -673,7 +681,7 @@
                 if (driverOf) {
                   ensure(driverOf);
                   driverNet[driverOf].iOwe += amt;
-                  if (p.paid) driverNet[driverOf].iOwePaid += amt;
+                  if (p.paid || p.settledByRide) driverNet[driverOf].iOwePaid += amt;
                 }
               }
             });
@@ -682,6 +690,27 @@
       });
     
       return { driverNet, paxRecv, paxRecvd };
+    }
+    
+    
+    // ── Ride credit engine ──────────────────────────────────────────────────────
+    // Credits accumulate when myId drove otherId on trips that are still unresolved
+    // (passenger not paid in cash AND not settled by ride).
+    // 1 trecho = 1 stretch (ida or volta). "ambas" = 2 trechos.
+    function calcRideCredits(allTrips, myId) {
+      const credits = {}; // { [otherId]: N_trechos }
+      const ensure = (id) => { if (!credits[id]) credits[id] = 0; };
+      allTrips.forEach(t => {
+        if (t.pendingConfirmation || t.role !== "motorista" || t.registeredBy !== myId) return;
+        (t.passengers || []).forEach(p => {
+          if (!p.driverId || p.driverId === "__custom__") return;
+          if (p.paid || p.settledByRide) return; // already resolved — no credit
+          ensure(p.driverId);
+          const trechos = paxMult(p, t.direction); // 1 for ida/volta, 2 for ambas
+          credits[p.driverId] += trechos;
+        });
+      });
+      return credits;
     }
     
     function calcCashFlow(allTrips, myId) {
@@ -1082,48 +1111,8 @@
       const driverDisplayName = driver?.name || trip.driverName || "?";
       const mult = trip.direction === "ambas" ? 2 : 1;
     
-      const dnFor = (dId) => weekDn && dId && weekDn[dId];
-      // isCancelledByRide: passageiro card — am I (myId) settled with this driver?
-      const isCancelledByRide = (dId) => {
-        const dn = dnFor(dId);
-        if (!dn) return false;
-        return netPending(dn) >= 0;
-      };
-      // isCancelledByRideForPax: motorista card — is this specific pax entry settled?
-      // Uses allTrips (full confirmed history) so cross-week credits are counted.
-      // Same algorithm as isCancelledChron in Saldos — they must stay in sync.
-      const isCancelledByRideForPax = (paxDriverId) => {
-        if (!paxDriverId || paxDriverId === "__custom__") return false;
-        const tripDriver = trip.registeredBy;
-        const scope = allTrips || weekTrips; // allTrips preferred for consistency with Saldos
-        if (!scope) return false;
-    
-        // Credit: paxDriverId drove tripDriver (all history)
-        let credit = 0;
-        scope.forEach(wt => {
-          if (wt.pendingConfirmation || wt.role !== "motorista" || wt.registeredBy !== paxDriverId) return;
-          const ep = (wt.passengers||[]).find(p => p.driverId === tripDriver);
-          if (ep) credit += paxPrice(ep) * paxMult(ep, wt.direction);
-        });
-        if (credit <= 0) return false;
-    
-        // Debt trips: tripDriver drove paxDriverId, sorted ASC
-        const debtTrips = scope
-          .filter(wt => !wt.pendingConfirmation && wt.role === "motorista"
-            && wt.registeredBy === tripDriver
-            && (wt.passengers||[]).some(p => p.driverId === paxDriverId))
-          .sort((a, b) => a.date.localeCompare(b.date));
-    
-        let remaining = credit;
-        for (const dt of debtTrips) {
-          const p = (dt.passengers||[]).find(p => p.driverId === paxDriverId);
-          if (!p) continue;
-          const amt = paxPrice(p) * paxMult(p, dt.direction);
-          if (dt.id === trip.id) return remaining >= amt;
-          if (!p.paid) remaining = Math.max(0, remaining - amt); // skip paid: already resolved
-        }
-        return false;
-      };
+      // settledByRide is now stored per-pax field (set explicitly by user action)
+      // No automatic cancelled logic anymore — user chooses to settle with ride credits
     
       const deleteTrip = (e) => { e.stopPropagation(); const msg = lang === "en" ? "Delete this trip?" : "Apagar esta viagem?"; if (window.confirm(msg)) upd({ ...st, trips: st.trips.filter(t => t.id !== trip.id) }); };
       const togglePaid = () => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, paid: !t.paid } : t) });
@@ -1181,9 +1170,10 @@
                 </div>
               </div>
               {(() => {
-                const cancelled = !trip.paid && isCancelledByRide(trip.driverId);
+                const cancelled = trip.settledByRide;
+                const partial = trip.settledByRide === "partial";
                 const statusColor = trip.paid ? C.green : cancelled ? C.green : C.red;
-                const statusLabel = trip.paid ? t("trip_paid_label") : cancelled ? t("trip_quitado") : t("trip_pending_label");
+                const statusLabel = trip.paid ? t("trip_paid_label") : cancelled === "partial" ? t("trip_partial_ride") : cancelled ? t("trip_quitado") : t("trip_pending_label");
                 return (
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: statusColor }}>{R(total)}</div>
@@ -1213,7 +1203,7 @@
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   {(() => {
-                    const cancelled = !trip.paid && isCancelledByRide(trip.driverId);
+                    const cancelled = trip.settledByRide;
                     if (cancelled) {
                       return (
                         <div style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, fontFamily: "Barlow, sans-serif" }}>
@@ -1265,7 +1255,7 @@
             </div>
             {(() => {
               const unpaidPax = pax.filter(p => !p.paid);
-              const allUnpaidCancelled = unpaidPax.length > 0 && unpaidPax.every(p => isCancelledByRideForPax(p.driverId));
+              const allUnpaidCancelled = unpaidPax.length > 0 && unpaidPax.every(p => p.settledByRide || p.paid);
               const effectivelyDone = received === total || allUnpaidCancelled;
               return (
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -1317,7 +1307,7 @@
                         </div>
                       </div>
                       {(() => {
-                        const pCancelled = !p.paid && isCancelledByRideForPax(p.driverId);
+                        const pCancelled = p.settledByRide && !p.paid;
                         if (pCancelled) {
                           return (
                             <div style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, fontFamily: "Barlow, sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>
@@ -1380,12 +1370,11 @@
       const totalPending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n > 0 ? s + n : s; }, 0);
       const sorted = [...weekTrips].sort((a, b) => b.date.localeCompare(a.date)); // includes pending
     
-      // "Quitado com carona": only true when there ARE gross unpaid amounts on BOTH sides
-      // (I owe someone AND someone owes me) that net to zero — not just an empty week.
-      // Uses driverNet which already has the myId perspective from calcBalances above.
-      const hasGrossIOwe   = Object.values(driverNet).some(dn => dn.iOwe   > dn.iOwePaid);
-      const hasGrossTheyOwe = Object.values(driverNet).some(dn => dn.theyOwe > dn.theyOwePaid);
-      const quitadoComCarona = hasGrossIOwe && hasGrossTheyOwe && totalOwed === 0 && totalPending === 0;
+      // quitadoComCarona: any trip settled by ride this week
+      const quitadoComCarona = weekTrips.some(t =>
+        t.settledByRide ||
+        (t.passengers||[]).some(p => p.settledByRide)
+      );
     
       const weekNum = getWeekNumber(viewWeek);
     
@@ -2337,32 +2326,60 @@
                         if (t.role === "motorista" && t.registeredBy === myId && (t.passengers||[]).some(p => p.driverId === dId)) return true;
                         return false;
                       }).sort((a,b) => b.date.localeCompare(a.date));
-                      // isCancelledChronological: uses full confirmed history for cross-week/month credit
-                      const scopeTrips = allConfirmed;
-                      const isCancelledChron = (trip, debtorId, creditorId) => {
-                        // Credit: debtorId drove creditorId this scope
-                        let credit = 0;
-                        scopeTrips.forEach(wt => {
-                          if (wt.pendingConfirmation || wt.role !== "motorista" || wt.registeredBy !== debtorId) return;
-                          const ep = (wt.passengers||[]).find(p => p.driverId === creditorId);
-                          if (ep) credit += paxPrice(ep) * paxMult(ep, wt.direction);
-                        });
-                        if (credit <= 0) return false;
-                        // Debt trips: creditorId drove debtorId, sorted ASC
-                        const debtTrips = scopeTrips
+                      // Credits: how many trechos myId has with dId (myId drove dId on unresolved trips)
+                      const myCreditsWithDId = calcRideCredits(allConfirmed, myId)[dId] || 0;
+                      // Credits dId has with myId (dId drove myId on unresolved trips)  
+                      const dIdCreditsWithMe = calcRideCredits(allConfirmed, dId)[myId] || 0;
+    
+                      // settleWithRide: devedor (myId) uses their credits to settle a debt to dId
+                      // The credit source: dId's unresolved trips where they drove myId
+                      // We consume those trips FIFO (oldest first)
+                      const handleSettleWithRide = (debtTrip, debtPaxEntry) => {
+                        // debtTrip: the trip where dId drove myId and myId owes money
+                        // We need to find which trips myId drove dId (creditor trips) and consume FIFO
+                        const trechosNeeded = debtPaxEntry
+                          ? paxMult(debtPaxEntry, debtTrip.direction) // pax entry for motorista trip
+                          : paxMult(debtTrip, debtTrip.direction);   // passageiro trip
+                        
+                        // Trips where myId drove dId, still unresolved, sorted ASC (FIFO)
+                        const creditTrips = allConfirmed
                           .filter(wt => !wt.pendingConfirmation && wt.role === "motorista"
-                            && wt.registeredBy === creditorId
-                            && (wt.passengers||[]).some(p => p.driverId === debtorId))
+                            && wt.registeredBy === myId
+                            && (wt.passengers||[]).some(p => p.driverId === dId && !p.paid && !p.settledByRide))
                           .sort((a, b) => a.date.localeCompare(b.date));
-                        let remaining = credit;
-                        for (const dt of debtTrips) {
-                          const p = (dt.passengers||[]).find(p => p.driverId === debtorId);
-                          if (!p) continue;
-                          const amt = paxPrice(p) * paxMult(p, dt.direction);
-                          if (dt.id === trip.id) return remaining >= amt;
-                          if (!p.paid) remaining = Math.max(0, remaining - amt); // skip paid
+    
+                        let trechosLeft = trechosNeeded;
+                        let updTrips = [...st.trips];
+    
+                        // Consume credit FIFO from creditTrips
+                        for (const ct of creditTrips) {
+                          if (trechosLeft <= 0) break;
+                          const cp = ct.passengers.find(p => p.driverId === dId && !p.paid && !p.settledByRide);
+                          if (!cp) continue;
+                          const cpTrechos = paxMult(cp, ct.direction);
+                          // Mark this credit passenger as settledByRide (their debt to myId is consumed)
+                          const consume = Math.min(cpTrechos, trechosLeft);
+                          trechosLeft -= consume;
+                          const newSettle = consume >= cpTrechos ? true : "partial";
+                          updTrips = updTrips.map(t => t.id !== ct.id ? t : {
+                            ...t,
+                            passengers: t.passengers.map(p => p.id !== cp.id ? p : { ...p, settledByRide: newSettle })
+                          });
                         }
-                        return false;
+    
+                        // Now mark the debt trip as settled (full or partial)
+                        const settled = trechosLeft <= 0 ? true : "partial";
+                        if (debtPaxEntry) {
+                          // motorista trip: mark the specific pax entry
+                          updTrips = updTrips.map(t => t.id !== debtTrip.id ? t : {
+                            ...t,
+                            passengers: t.passengers.map(p => p.id !== debtPaxEntry.id ? p : { ...p, settledByRide: settled })
+                          });
+                        } else {
+                          // passageiro trip: mark the trip itself
+                          updTrips = updTrips.map(t => t.id !== debtTrip.id ? t : { ...t, settledByRide: settled });
+                        }
+                        upd({ ...st, trips: updTrips });
                       };
     
                       const borderCol = isEven ? C.green + "44" : iOweThem ? C.red + "33" : C.amber + "33";
@@ -2374,6 +2391,9 @@
                               <div style={{ fontSize: 16, color: C.text, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                                 {name}
                                 {isEven && <span style={{ background: C.green, color: "#000", fontSize: 9, fontWeight: 700, borderRadius: 5, padding: "2px 7px", letterSpacing: 0.5 }}>QUITES ✓</span>}
+                                <span style={{ fontSize: 11, fontWeight: 600, color: myCreditsWithDId > 0 ? C.green : C.muted, background: myCreditsWithDId > 0 ? C.greenDim : C.dim, borderRadius: 5, padding: "2px 7px" }}>
+                                  {myCreditsWithDId > 0 ? `${myCreditsWithDId} trecho${myCreditsWithDId !== 1 ? "s" : ""} ✓` : `0 trechos`}
+                                </span>
                               </div>
                               {driver?.pix && (
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
@@ -2434,29 +2454,37 @@
                                 <div>
                                   <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>{t("rode_with", name)}</div>
                                   {iOweTrips.map(tr => {
-                                    let myPaid, myAmt, myDir;
+                                    let myPaid, myAmt, myDir, myPaxEntry, mySettled;
                                     if (tr.role === "passageiro" && tr.registeredBy === myId) {
                                       const x = tr.direction === "ambas" ? 2 : 1;
                                       myPaid = tr.paid; myAmt = tripPrice(tr) * x; myDir = tr.direction;
+                                      mySettled = tr.settledByRide;
                                     } else {
-                                      const myPaxEntry = (tr.passengers||[]).find(p => p.driverId === myId);
+                                      myPaxEntry = (tr.passengers||[]).find(p => p.driverId === myId);
                                       if (!myPaxEntry) return null;
                                       myDir = myPaxEntry.direction || tr.direction;
                                       myPaid = myPaxEntry.paid;
                                       myAmt = paxPrice(myPaxEntry) * paxMult(myPaxEntry, tr.direction);
+                                      mySettled = myPaxEntry.settledByRide;
                                     }
-                                    const cancelled = !myPaid && isCancelledChron(tr, myId, dId);
-                                    const rowColor = (myPaid || cancelled) ? C.muted : C.text;
+                                    const isResolved = myPaid || mySettled === true;
+                                    const isPartial = mySettled === "partial";
+                                    const trechosNeeded = myPaxEntry ? paxMult(myPaxEntry, tr.direction) : paxMult(tr, tr.direction);
+                                    const canSettle = !isResolved && !isPartial && myCreditsWithDId >= 1;
+                                    const canSettlePartial = !isResolved && !isPartial && myCreditsWithDId > 0 && myCreditsWithDId < trechosNeeded;
+                                    const rowColor = (isResolved || isPartial) ? C.muted : C.text;
                                     return (
                                       <div key={tr.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
                                         <div style={{ fontSize: 13, color: rowColor }}>
                                           <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(tr.date, lang)}</span>{fmtFull(tr.date)} · {DIR(lang)[myDir]}
                                           {myPaid && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("paid_label_short")}</span>}
-                                          {cancelled && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
+                                          {mySettled === true && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
+                                          {mySettled === "partial" && <span style={{ color: C.amber, marginLeft: 6, fontSize: 11 }}>{t("trip_partial_ride")}</span>}
                                         </div>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (myPaid || cancelled) ? C.muted : C.red }}>{R(myAmt)}</span>
-                                          {!myPaid && !cancelled && tr.role === "passageiro" && <button onClick={() => markPaid(tr.id)} style={btnGreen}>{t("extrato_pay")}</button>}
+                                          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: isResolved ? C.muted : isPartial ? C.amber : C.red }}>{R(myAmt)}</span>
+                                          {!isResolved && !isPartial && tr.role === "passageiro" && myPaid === false && <button onClick={() => markPaid(tr.id)} style={btnGreen}>{t("extrato_pay")}</button>}
+                                          {(canSettle || canSettlePartial) && <button onClick={() => handleSettleWithRide(tr, myPaxEntry || null)} style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("settle_with_ride")}</button>}
                                         </div>
                                       </div>
                                     );
@@ -2469,16 +2497,17 @@
                                   {theyOweTrips.map(trip => {
                                     if (trip.role === "passageiro" && trip.registeredBy === dId && trip.driverId === myId) {
                                       const x = trip.direction === "ambas" ? 2 : 1;
-                                      const cancelled = !trip.paid && isCancelledChron(trip, dId, myId);
+                                      const settled = trip.settledByRide;
                                       return (
                                         <div key={trip.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
-                                          <div style={{ fontSize: 13, color: (trip.paid || cancelled) ? C.muted : C.text }}>
+                                          <div style={{ fontSize: 13, color: (trip.paid || settled) ? C.muted : C.text }}>
                                             <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(trip.date, lang)}</span>{fmtFull(trip.date)} · {DIR(lang)[trip.direction]}
                                             {trip.paid && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("received_label_short")}</span>}
-                                            {cancelled && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
+                                            {settled === true && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
+                                            {settled === "partial" && <span style={{ color: C.amber, marginLeft: 6, fontSize: 11 }}>{t("trip_partial_ride")}</span>}
                                           </div>
                                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (trip.paid || cancelled) ? C.muted : C.amber }}>{R(tripPrice(trip) * x)}</span>
+                                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (trip.paid || settled === true) ? C.muted : C.amber }}>{R(tripPrice(trip) * x)}</span>
                                           </div>
                                         </div>
                                       );
@@ -2487,13 +2516,14 @@
                                     return pax.map(p => {
                                       const pm = paxMult(p, trip.direction);
                                       const pDir = p.direction || trip.direction;
-                                      const cancelled = !p.paid && isCancelledChron(trip, dId, myId);
+                                      const settled = p.settledByRide;
                                       return (
                                         <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
-                                          <div style={{ fontSize: 13, color: (p.paid || cancelled) ? C.muted : C.text }}>
+                                          <div style={{ fontSize: 13, color: (p.paid || settled) ? C.muted : C.text }}>
                                             <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(trip.date, lang)}</span>{fmtFull(trip.date)} · {DIR(lang)[pDir]}
                                             {p.paid && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("received_label_short")}</span>}
-                                            {cancelled && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
+                                            {settled === true && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
+                                            {settled === "partial" && <span style={{ color: C.amber, marginLeft: 6, fontSize: 11 }}>{t("trip_partial_ride")}</span>}
                                           </div>
                                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (p.paid || cancelled) ? C.muted : C.amber }}>{R(paxPrice(p) * pm)}</span>
