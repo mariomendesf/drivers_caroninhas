@@ -2461,13 +2461,11 @@ function Saldos({ st, upd, myId, initialView }) {
                           {isEven
                             ? <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, fontWeight: 700, color: C.green }}>R$&nbsp;0</div>
                             : bothOwe
-                            ? <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.red }}>
+                            ? <div>
+                                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, fontWeight: 700, color: C.red }}>
                                   −{R(iOwePending)}
                                 </div>
-                                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.amber }}>
-                                  +{R(theyOwePending)}
-                                </div>
+                                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("you_owe_them", name)}</div>
                               </div>
                             : <div>
                                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, fontWeight: 700, color: iOweThem ? C.red : C.amber }}>
@@ -2570,12 +2568,16 @@ function Saldos({ st, upd, myId, initialView }) {
                               })}
                             </div>
                           )}
-                          {!isEven && (
-                            <div style={{ background: iOweThem ? C.redDim : C.amberDim, border: `1px solid ${iOweThem ? C.red+"33" : C.amber+"33"}`, borderRadius: 9, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontSize: 13, color: iOweThem ? C.red : C.amber }}>
-                                {iOweThem ? t("balance_you_owe") : t("balance_they_owe", name)}
-                              </span>
-                              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: iOweThem ? C.red : C.amber }}>{R(Math.abs(net))}</span>
+                          {iOwePending > 0 && (
+                            <div style={{ background: C.redDim, border: `1px solid ${C.red}33`, borderRadius: 9, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontSize: 13, color: C.red }}>{t("balance_you_owe")}</span>
+                              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.red }}>{R(iOwePending)}</span>
+                            </div>
+                          )}
+                          {theyOwePending > 0 && (
+                            <div style={{ background: C.amberDim, border: `1px solid ${C.amber}33`, borderRadius: 9, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontSize: 13, color: C.amber }}>{t("balance_they_owe", name)}</span>
+                              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.amber }}>{R(theyOwePending)}</span>
                             </div>
                           )}
                         </div>
