@@ -136,7 +136,7 @@ const TR = {
     your_pix_ph: "Seu pix (opcional)",
     other_pix_ph: "CPF, e-mail, telefone...",
     car_cost_sub2: "Valores padrão ao registrar como motorista.",
-    price_per_stretch_label: (v) => `v4.1 · Preço por trecho: ${v}`,
+    price_per_stretch_label: (v) => `v4.2 · Preço por trecho: ${v}`,
     saldos_title: "Saldos",
     saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
     saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -205,7 +205,7 @@ const TR = {
     opts_delete_pass_ph: "Senha",
     opts_delete_wrong: "Senha incorreta",
     opts_delete_do: "Apagar tudo",
-    opts_version: "Caroninhas — Grupo v4.1",
+    opts_version: "Caroninhas — Grupo v4.2",
     opts_firebase_ok: "☁️ Firebase conectado",
     opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
     // Lock
@@ -1340,8 +1340,8 @@ function Home({ st, upd, setTab, myId }) {
   const weekTrips = st.trips.filter(t => t.weekStart === viewWeek);
   const allConfirmed = st.trips.filter(t => !t.pendingConfirmation); // full history for cross-week quitado
   const { driverNet, paxRecv, paxRecvd } = calcBalances(weekTrips, myId);
-  const totalOwed    = Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n < 0 ? s + Math.abs(n) : s; }, 0);
-  const totalPending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n > 0 ? s + n : s; }, 0);
+  const totalOwed    = Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.iOwe - dn.iOwePaid), 0);
+  const totalPending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.theyOwe - dn.theyOwePaid), 0);
   const sorted = [...weekTrips].sort((a, b) => b.date.localeCompare(a.date)); // includes pending
 
   // quitadoComCarona: any trip settled by ride this week
@@ -2224,8 +2224,8 @@ function Saldos({ st, upd, myId, initialView }) {
   const { driverNet, paxRecv, paxRecvd } = calcBalances(trips, myId);
   const dMap = Object.fromEntries(st.drivers.map(d => [d.id, d]));
 
-  const totalIOwePending    = Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n < 0 ? s + Math.abs(n) : s; }, 0);
-  const totalTheyOwePending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n > 0 ? s + n : s; }, 0);
+  const totalIOwePending    = Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.iOwe - dn.iOwePaid), 0);
+  const totalTheyOwePending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.theyOwe - dn.theyOwePaid), 0);
 
   const markPaid    = (tripId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, paid: !t.paid } : t) });
   const markPaxPaid = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: !p.paid } : p) } : t) });
@@ -2305,12 +2305,14 @@ function Saldos({ st, upd, myId, initialView }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {allDriverIds.map(dId => {
                   const dn = driverNet[dId];
-                  const net = netPending(dn);
+                  const iOwePending = Math.max(0, dn.iOwe - dn.iOwePaid);
+                  const theyOwePending = Math.max(0, dn.theyOwe - dn.theyOwePaid);
                   const driver = dMap[dId];
                   const name = driver?.name || dId;
-                  const isEven = net === 0;
-                  const theyOweMe = net > 0;
-                  const iOweThem = net < 0;
+                  const isEven = iOwePending === 0 && theyOwePending === 0;
+                  const theyOweMe = theyOwePending > 0 && iOwePending === 0;
+                  const iOweThem = iOwePending > 0 && theyOwePending === 0;
+                  const bothOwe = iOwePending > 0 && theyOwePending > 0;
                   // iOweTrips: trips where I (myId) owe dId — use trips (month filter)
                   const iOweTrips = trips.filter(t => {
                     if (t.pendingConfirmation) return false;
@@ -2406,7 +2408,7 @@ function Saldos({ st, upd, myId, initialView }) {
                     upd({ ...st, trips: updTrips });
                   };
 
-                  const borderCol = isEven ? C.green + "44" : iOweThem ? C.red + "33" : C.amber + "33";
+                  const borderCol = isEven ? C.green + "44" : bothOwe ? C.amber + "44" : iOweThem ? C.red + "33" : C.amber + "33";
                   const isOpen = expanded[dId];
                   return (
                     <div key={dId} style={{ background: C.card, border: `1px solid ${borderCol}`, borderRadius: 14, overflow: "hidden" }}>
@@ -2458,9 +2460,18 @@ function Saldos({ st, upd, myId, initialView }) {
                         <div style={{ textAlign: "right" }}>
                           {isEven
                             ? <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, fontWeight: 700, color: C.green }}>R$&nbsp;0</div>
+                            : bothOwe
+                            ? <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.red }}>
+                                  −{R(iOwePending)}
+                                </div>
+                                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.amber }}>
+                                  +{R(theyOwePending)}
+                                </div>
+                              </div>
                             : <div>
                                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, fontWeight: 700, color: iOweThem ? C.red : C.amber }}>
-                                  {iOweThem ? "−" : "+"}{R(Math.abs(net))}
+                                  {iOweThem ? "−" : "+"}{R(iOweThem ? iOwePending : theyOwePending)}
                                 </div>
                                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>
                                   {iOweThem ? t("you_owe_them", name) : t("they_owe_you", name)}
@@ -2921,8 +2932,8 @@ function Hist({ st, upd, myId }) {
         {weeks.map(week => {
           const trips = byWeek[week];
           const { driverNet, paxRecv, paxRecvd } = calcBalances(trips, myId);
-          const owedTotal    = Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n < 0 ? s + Math.abs(n) : s; }, 0);
-          const pendingTotal = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => { const n = netPending(dn); return n > 0 ? s + n : s; }, 0);
+          const owedTotal    = Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.iOwe - dn.iOwePaid), 0);
+          const pendingTotal = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.theyOwe - dn.theyOwePaid), 0);
           const isCurrent = week === thisWeek;
           const isOpen = expanded === week;
 
