@@ -2605,18 +2605,6 @@
                                   })}
                                 </div>
                               )}
-                              {iOwePending > 0 && (
-                                <div style={{ background: C.redDim, border: `1px solid ${C.red}33`, borderRadius: 9, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                  <span style={{ fontSize: 13, color: C.red }}>{t("balance_you_owe")}</span>
-                                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.red }}>{R(iOwePending)}</span>
-                                </div>
-                              )}
-                              {theyOwePending > 0 && (
-                                <div style={{ background: C.amberDim, border: `1px solid ${C.amber}33`, borderRadius: 9, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                  <span style={{ fontSize: 13, color: C.amber }}>{t("balance_they_owe", name)}</span>
-                                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: C.amber }}>{R(theyOwePending)}</span>
-                                </div>
-                              )}
                             </div>
                           )}
                         </div>
