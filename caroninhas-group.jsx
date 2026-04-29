@@ -136,7 +136,7 @@ const TR = {
     your_pix_ph: "Seu pix (opcional)",
     other_pix_ph: "CPF, e-mail, telefone...",
     car_cost_sub2: "Valores padrão ao registrar como motorista.",
-    price_per_stretch_label: (v) => `v4.2.1 · Preço por trecho: ${v}`,
+    price_per_stretch_label: (v) => `v4.3 · Preço por trecho: ${v}`,
     saldos_title: "Saldos",
     saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
     saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -205,7 +205,7 @@ const TR = {
     opts_delete_pass_ph: "Senha",
     opts_delete_wrong: "Senha incorreta",
     opts_delete_do: "Apagar tudo",
-    opts_version: "Caroninhas — Grupo v4.2.1",
+    opts_version: "Caroninhas — Grupo v4.3",
     opts_firebase_ok: "☁️ Firebase conectado",
     opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
     // Lock
@@ -225,6 +225,21 @@ const TR = {
     who_are_you: "Quem é você?",
     who_subtitle: "Selecione seu perfil para entrar.",
     enter_password: "Digite sua senha",
+    pass_first_login: "Primeira vez? Crie sua senha",
+    pass_set_title: "Crie sua senha",
+    pass_set_sub: "A senha padrão foi detectada. Defina uma senha pessoal para continuar.",
+    pass_new_ph: "Nova senha",
+    pass_confirm_ph: "Confirme a senha",
+    pass_set_btn: "Definir senha",
+    pass_mismatch: "As senhas não coincidem",
+    pass_too_short: "Mínimo 4 caracteres",
+    admin_pass_title: "Senhas dos motoristas",
+    admin_pass_reset_btn: "Resetar senha",
+    admin_pass_reset_confirm: "Resetar senha de",
+    admin_pass_reset_do: "Confirmar reset",
+    admin_pass_reset_done: "Senha resetada ✓",
+    admin_pass_status_set: "senha personalizada",
+    admin_pass_status_default: "senha padrão (0000)",
     new_trips_badge: (n) => `${n} nova${n !== 1 ? "s" : ""} viagem${n !== 1 ? "ns" : ""} esta semana`,
     new_trips_btn: "Ver viagens",
     pending_confirm_title: "Aguardando sua confirmação",
@@ -452,6 +467,21 @@ const TR = {
     your_total: "Your total costs",
     their_total: "Their total",
     loading: "Loading…",
+    pass_first_login: "First time? Create your password",
+    pass_set_title: "Create your password",
+    pass_set_sub: "Default password detected. Set a personal password to continue.",
+    pass_new_ph: "New password",
+    pass_confirm_ph: "Confirm password",
+    pass_set_btn: "Set password",
+    pass_mismatch: "Passwords don't match",
+    pass_too_short: "Minimum 4 characters",
+    admin_pass_title: "Driver passwords",
+    admin_pass_reset_btn: "Reset password",
+    admin_pass_reset_confirm: "Reset password for",
+    admin_pass_reset_do: "Confirm reset",
+    admin_pass_reset_done: "Password reset ✓",
+    admin_pass_status_set: "custom password",
+    admin_pass_status_default: "default password (0000)",
   },
 };
 
@@ -3067,8 +3097,21 @@ function Opcoes({ st, upd, myId, onSignOut }) {
   const [showDanger, setShowDanger] = useState(false);
   const [dangerPass, setDangerPass] = useState("");
   const [dangerErr, setDangerErr] = useState(false);
+
+  const [passResetTarget, setPassResetTarget] = useState(null); // dId being reset
+  const [passResetDone, setPassResetDone] = useState(null);     // dId just reset
+  const [passStatuses, setPassStatuses] = useState(() =>
+    GROUP_DRIVERS.reduce((acc, d) => { acc[d.id] = driverHasCustomPassword(d.id); return acc; }, {})
+  );
+  const doResetPass = (dId) => {
+    resetDriverPassword(dId);
+    setPassResetTarget(null);
+    setPassResetDone(dId);
+    setPassStatuses(prev => ({ ...prev, [dId]: false }));
+    setTimeout(() => setPassResetDone(null), 2500);
+  };
   const clearAll = async () => {
-    const ok = await checkPassword(dangerPass);
+    const ok = await checkDriverPassword(myId, dangerPass);
     if (ok) {
       upd({ ...st, trips: [] });
       setShowDanger(false);
@@ -3239,6 +3282,44 @@ function Opcoes({ st, upd, myId, onSignOut }) {
             ))}
           </div>
         </div>
+
+        {myId === ADMIN_ID && <div style={cardS}>
+          <label style={lbl}>{t("admin_pass_title")}</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {GROUP_DRIVERS.map(d => (
+              <div key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{d.name}</div>
+                  <div style={{ fontSize: 11, color: passStatuses[d.id] ? C.green : C.muted }}>
+                    {passStatuses[d.id] ? t("admin_pass_status_set") : t("admin_pass_status_default")}
+                  </div>
+                </div>
+                {passResetDone === d.id ? (
+                  <span style={{ fontSize: 12, color: C.green }}>{t("admin_pass_reset_done")}</span>
+                ) : passResetTarget === d.id ? (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => doResetPass(d.id)} style={{
+                      background: C.redDim, border: `1px solid ${C.red}44`, color: C.red,
+                      borderRadius: 8, padding: "6px 10px", fontSize: 11, fontWeight: 600,
+                      cursor: "pointer", fontFamily: "Barlow, sans-serif",
+                    }}>{t("admin_pass_reset_do")}</button>
+                    <button onClick={() => setPassResetTarget(null)} style={{
+                      background: C.dim, border: `1px solid ${C.border}`, color: C.muted,
+                      borderRadius: 8, padding: "6px 10px", fontSize: 11,
+                      cursor: "pointer", fontFamily: "Barlow, sans-serif",
+                    }}>{t("cancel_btn")}</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setPassResetTarget(d.id)} style={{
+                    background: C.dim, border: `1px solid ${C.border}`, color: C.muted,
+                    borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 600,
+                    cursor: "pointer", fontFamily: "Barlow, sans-serif",
+                  }}>{t("admin_pass_reset_btn")}</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>}
 
         {myId === ADMIN_ID && <div style={cardS}>
           <label style={lbl}>{t("opts_backup")}</label>
@@ -3446,11 +3527,12 @@ function Nav({ tab, setTab, lang, myId, trips }) {
 //  LOCK SCREEN
 // ═══════════════════════════════════════════
 // Per-driver auth — all start with "0000"
-const DRIVER_PASS_HASH = "9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0";
+const DEFAULT_PASS_HASH = "9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0";
 const LOCK_KEY    = "caroninhas-grupo-unlocked";
 const MY_ID_KEY   = "caroninhas-grupo-myId";
 const ADMIN_ID    = "d1"; // Mário — can register any trip
 const LAST_SEEN_KEY = (dId) => `caroninhas-grupo-lastseen-${dId}`;
+const PASS_KEY    = (dId) => `caroninhas-grupo-pass-${dId}`;
 
 // Pre-defined group drivers
 const GROUP_DRIVERS = [
@@ -3461,21 +3543,47 @@ const GROUP_DRIVERS = [
   { id: "d5", name: "Rafael",  pix: "" },
 ];
 
-async function checkPassword(input) {
+async function hashPassword(input) {
   const enc = new TextEncoder().encode(input);
   const buf = await crypto.subtle.digest("SHA-256", enc);
-  const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-  return hex === DRIVER_PASS_HASH;
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function checkDriverPassword(dId, input) {
+  const hash = await hashPassword(input);
+  const stored = localStorage.getItem(PASS_KEY(dId));
+  return stored ? hash === stored : hash === DEFAULT_PASS_HASH;
+}
+
+function driverHasCustomPassword(dId) {
+  return !!localStorage.getItem(PASS_KEY(dId));
+}
+
+async function setDriverPassword(dId, input) {
+  const hash = await hashPassword(input);
+  localStorage.setItem(PASS_KEY(dId), hash);
+}
+
+function resetDriverPassword(dId) {
+  localStorage.removeItem(PASS_KEY(dId));
+}
+
+// Legacy — used by danger zone confirm (checks against caller's own stored password)
+async function checkPassword(dId, input) {
+  return checkDriverPassword(dId, input);
 }
 
 // DriverSelector: pick who you are, then enter password
 function DriverSelector({ onUnlock, lang }) {
   const t = mkT(lang || "pt");
-  const [step, setStep] = useState("select"); // "select" | "password"
+  const [step, setStep] = useState("select"); // "select" | "password" | "set_password"
   const [selectedId, setSelectedId] = useState(null);
   const [val, setVal] = useState("");
   const [err, setErr] = useState(false);
   const [shake, setShake] = useState(false);
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [passErr, setPassErr] = useState("");
 
   const driverEmojis = { d1: "👤", d2: "👩", d3: "👩", d4: "👨", d5: "👨" };
 
@@ -3487,17 +3595,34 @@ function DriverSelector({ onUnlock, lang }) {
   };
 
   const tryUnlock = async () => {
-    const ok = await checkPassword(val);
+    const ok = await checkDriverPassword(selectedId, val);
     if (ok) {
-      localStorage.setItem(MY_ID_KEY, selectedId);
-      localStorage.setItem(`${LOCK_KEY}-${selectedId}`, "1");
-      onUnlock(selectedId);
+      const isDefault = !driverHasCustomPassword(selectedId);
+      if (isDefault) {
+        setStep("set_password");
+        setNewPass("");
+        setConfirmPass("");
+        setPassErr("");
+      } else {
+        localStorage.setItem(MY_ID_KEY, selectedId);
+        localStorage.setItem(`${LOCK_KEY}-${selectedId}`, "1");
+        onUnlock(selectedId);
+      }
     } else {
       setErr(true);
       setShake(true);
       setVal("");
       setTimeout(() => { setShake(false); setErr(false); }, 600);
     }
+  };
+
+  const trySetPassword = async () => {
+    if (newPass.length < 4) { setPassErr(t("pass_too_short")); return; }
+    if (newPass !== confirmPass) { setPassErr(t("pass_mismatch")); return; }
+    await setDriverPassword(selectedId, newPass);
+    localStorage.setItem(MY_ID_KEY, selectedId);
+    localStorage.setItem(`${LOCK_KEY}-${selectedId}`, "1");
+    onUnlock(selectedId);
   };
 
   const selectedDriver = GROUP_DRIVERS.find(d => d.id === selectedId);
@@ -3574,6 +3699,62 @@ function DriverSelector({ onUnlock, lang }) {
             fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1, textTransform: "uppercase",
           }}>
             {t("enter_btn")}
+          </button>
+        </div>
+      )}
+
+      {step === "set_password" && (
+        <div style={{ width: "100%", maxWidth: 300 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.amberDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+              {driverEmojis[selectedId] || "🧑"}
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>{selectedDriver?.name}</div>
+              <div style={{ fontSize: 12, color: C.amber }}>{t("pass_set_title")}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>{t("pass_set_sub")}</div>
+          <input
+            type="password"
+            value={newPass}
+            onChange={e => { setNewPass(e.target.value); setPassErr(""); }}
+            onKeyDown={e => e.key === "Enter" && trySetPassword()}
+            placeholder={t("pass_new_ph")}
+            autoFocus
+            style={{
+              width: "100%", background: C.card,
+              border: `1px solid ${passErr ? C.red : C.border}`,
+              borderRadius: 12, padding: "14px 18px",
+              color: C.text, fontSize: 18, outline: "none",
+              textAlign: "center", letterSpacing: 4,
+              fontFamily: "Barlow, sans-serif", marginBottom: 10,
+            }}
+          />
+          <input
+            type="password"
+            value={confirmPass}
+            onChange={e => { setConfirmPass(e.target.value); setPassErr(""); }}
+            onKeyDown={e => e.key === "Enter" && trySetPassword()}
+            placeholder={t("pass_confirm_ph")}
+            style={{
+              width: "100%", background: C.card,
+              border: `1px solid ${passErr ? C.red : C.border}`,
+              borderRadius: 12, padding: "14px 18px",
+              color: C.text, fontSize: 18, outline: "none",
+              textAlign: "center", letterSpacing: 4,
+              fontFamily: "Barlow, sans-serif",
+            }}
+          />
+          {passErr && <div style={{ color: C.red, fontSize: 12, textAlign: "center", marginTop: 8 }}>{passErr}</div>}
+          <button onClick={trySetPassword} style={{
+            marginTop: 14, width: "100%",
+            background: C.amber, color: "#000", border: "none",
+            borderRadius: 12, padding: "14px 0",
+            fontSize: 15, fontWeight: 700, cursor: "pointer",
+            fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1, textTransform: "uppercase",
+          }}>
+            {t("pass_set_btn")}
           </button>
         </div>
       )}
