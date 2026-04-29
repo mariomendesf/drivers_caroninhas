@@ -136,7 +136,7 @@ const TR = {
     your_pix_ph: "Seu pix (opcional)",
     other_pix_ph: "CPF, e-mail, telefone...",
     car_cost_sub2: "Valores padrão ao registrar como motorista.",
-    price_per_stretch_label: (v) => `v4.3 · Preço por trecho: ${v}`,
+    price_per_stretch_label: (v) => `v4.3.1 · Preço por trecho: ${v}`,
     saldos_title: "Saldos",
     saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
     saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -205,7 +205,7 @@ const TR = {
     opts_delete_pass_ph: "Senha",
     opts_delete_wrong: "Senha incorreta",
     opts_delete_do: "Apagar tudo",
-    opts_version: "Caroninhas — Grupo v4.3",
+    opts_version: "Caroninhas — Grupo v4.3.1",
     opts_firebase_ok: "☁️ Firebase conectado",
     opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
     // Lock
@@ -3098,16 +3098,15 @@ function Opcoes({ st, upd, myId, onSignOut }) {
   const [dangerPass, setDangerPass] = useState("");
   const [dangerErr, setDangerErr] = useState(false);
 
-  const [passResetTarget, setPassResetTarget] = useState(null); // dId being reset
-  const [passResetDone, setPassResetDone] = useState(null);     // dId just reset
-  const [passStatuses, setPassStatuses] = useState(() =>
-    GROUP_DRIVERS.reduce((acc, d) => { acc[d.id] = driverHasCustomPassword(d.id); return acc; }, {})
-  );
-  const doResetPass = (dId) => {
-    resetDriverPassword(dId);
+  const [passResetTarget, setPassResetTarget] = useState(null);
+  const [passResetDone, setPassResetDone] = useState(null);
+  const [passMap, setPassMap] = useState(() => passMapGet());
+  useEffect(() => { loadPasswords().then(m => setPassMap(m)); }, []);
+  const doResetPass = async (dId) => {
+    const updated = await resetDriverPassword(dId, passMap);
+    setPassMap(updated);
     setPassResetTarget(null);
     setPassResetDone(dId);
-    setPassStatuses(prev => ({ ...prev, [dId]: false }));
     setTimeout(() => setPassResetDone(null), 2500);
   };
   const clearAll = async () => {
@@ -3290,8 +3289,8 @@ function Opcoes({ st, upd, myId, onSignOut }) {
               <div key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{d.name}</div>
-                  <div style={{ fontSize: 11, color: passStatuses[d.id] ? C.green : C.muted }}>
-                    {passStatuses[d.id] ? t("admin_pass_status_set") : t("admin_pass_status_default")}
+                  <div style={{ fontSize: 11, color: passMap[d.id] ? C.green : C.muted }}>
+                    {passMap[d.id] ? t("admin_pass_status_set") : t("admin_pass_status_default")}
                   </div>
                 </div>
                 {passResetDone === d.id ? (
@@ -3532,7 +3531,8 @@ const LOCK_KEY    = "caroninhas-grupo-unlocked";
 const MY_ID_KEY   = "caroninhas-grupo-myId";
 const ADMIN_ID    = "d1"; // Mário — can register any trip
 const LAST_SEEN_KEY = (dId) => `caroninhas-grupo-lastseen-${dId}`;
-const PASS_KEY    = (dId) => `caroninhas-grupo-pass-${dId}`;
+const PASS_DOC    = "caroninhas-grupo-passwords";
+const PASS_CACHE  = "caroninhas-grupo-passwords-cache";
 
 // Pre-defined group drivers
 const GROUP_DRIVERS = [
@@ -3549,26 +3549,63 @@ async function hashPassword(input) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function checkDriverPassword(dId, input) {
+// Password map: { d1: "sha256", d2: "sha256", ... } — stored in Firestore + localStorage cache
+function passMapGet() {
+  try { const r = localStorage.getItem(PASS_CACHE); return r ? JSON.parse(r) : {}; } catch { return {}; }
+}
+function passMapSet(m) {
+  try { localStorage.setItem(PASS_CACHE, JSON.stringify(m)); } catch {}
+}
+
+async function loadPasswords() {
+  const db = await __dbReady;
+  if (db) {
+    try {
+      const snap = await db.collection("caronas").doc(PASS_DOC).get();
+      if (snap.exists) {
+        const m = snap.data() || {};
+        passMapSet(m);
+        return m;
+      }
+    } catch(e) { console.warn("[grupo] loadPasswords error:", e); }
+  }
+  return passMapGet();
+}
+
+async function savePasswordMap(m) {
+  passMapSet(m);
+  const db = await __dbReady;
+  if (db) {
+    try { await db.collection("caronas").doc(PASS_DOC).set(m); }
+    catch(e) { console.warn("[grupo] savePasswordMap error:", e); }
+  }
+}
+
+async function checkDriverPassword(dId, input, passMap) {
   const hash = await hashPassword(input);
-  const stored = localStorage.getItem(PASS_KEY(dId));
+  const stored = (passMap || passMapGet())[dId];
   return stored ? hash === stored : hash === DEFAULT_PASS_HASH;
 }
 
-function driverHasCustomPassword(dId) {
-  return !!localStorage.getItem(PASS_KEY(dId));
+function driverHasCustomPassword(dId, passMap) {
+  return !!(passMap || passMapGet())[dId];
 }
 
-async function setDriverPassword(dId, input) {
+async function setDriverPassword(dId, input, passMap) {
   const hash = await hashPassword(input);
-  localStorage.setItem(PASS_KEY(dId), hash);
+  const updated = { ...(passMap || passMapGet()), [dId]: hash };
+  await savePasswordMap(updated);
+  return updated;
 }
 
-function resetDriverPassword(dId) {
-  localStorage.removeItem(PASS_KEY(dId));
+async function resetDriverPassword(dId, passMap) {
+  const updated = { ...(passMap || passMapGet()) };
+  delete updated[dId];
+  await savePasswordMap(updated);
+  return updated;
 }
 
-// Legacy — used by danger zone confirm (checks against caller's own stored password)
+// Used by danger zone confirm
 async function checkPassword(dId, input) {
   return checkDriverPassword(dId, input);
 }
@@ -3584,6 +3621,9 @@ function DriverSelector({ onUnlock, lang }) {
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
   const [passErr, setPassErr] = useState("");
+  const [passMap, setPassMap] = useState(() => passMapGet());
+
+  useEffect(() => { loadPasswords().then(m => setPassMap(m)); }, []);
 
   const driverEmojis = { d1: "👤", d2: "👩", d3: "👩", d4: "👨", d5: "👨" };
 
@@ -3595,9 +3635,9 @@ function DriverSelector({ onUnlock, lang }) {
   };
 
   const tryUnlock = async () => {
-    const ok = await checkDriverPassword(selectedId, val);
+    const ok = await checkDriverPassword(selectedId, val, passMap);
     if (ok) {
-      const isDefault = !driverHasCustomPassword(selectedId);
+      const isDefault = !driverHasCustomPassword(selectedId, passMap);
       if (isDefault) {
         setStep("set_password");
         setNewPass("");
@@ -3619,7 +3659,7 @@ function DriverSelector({ onUnlock, lang }) {
   const trySetPassword = async () => {
     if (newPass.length < 4) { setPassErr(t("pass_too_short")); return; }
     if (newPass !== confirmPass) { setPassErr(t("pass_mismatch")); return; }
-    await setDriverPassword(selectedId, newPass);
+    await setDriverPassword(selectedId, newPass, passMap);
     localStorage.setItem(MY_ID_KEY, selectedId);
     localStorage.setItem(`${LOCK_KEY}-${selectedId}`, "1");
     onUnlock(selectedId);
