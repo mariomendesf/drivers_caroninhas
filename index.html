@@ -603,15 +603,9 @@
             if (!fsData || !Array.isArray(fsData.trips)) {
               console.warn("[grupo] Firestore doc exists but payload invalid, using localStorage");
             } else {
-              const lsData = lsGet();
-              const useData = (lsData?.trips?.length > fsData.trips.length) ? lsData : fsData;
-              if (useData === lsData) {
-                console.log("[grupo] localStorage newer, syncing to Firestore...");
-                await db.collection("caronas").doc(KEY).set({ payload: stripUndefined(lsData) });
-              }
-              console.log("[grupo] Loaded OK, trips:", useData.trips.length);
-              lsSet(useData);
-              return useData;
+              console.log("[grupo] Loaded OK, trips:", fsData.trips.length);
+              lsSet(fsData);
+              return fsData;
             }
           }
           console.log("[grupo] No Firestore doc yet, checking localStorage...");
