@@ -3082,7 +3082,7 @@ function Opcoes({ st, upd, myId, onSignOut }) {
 
   const save = () => {
     const filled = drivers.filter((d, i) => i === 0 || d.name.trim());
-    upd({ ...st, drivers: filled.map(d => ({ ...d, name: d.name.trim(), pix: (d.pix || '').trim() || undefined })) });
+    upd({ ...st, drivers: filled.map(d => ({ ...d, name: d.name.trim(), pix: (d.pix || '').trim() })) });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
