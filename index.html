@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyAdZh7DEfxlK1VHyiB_3UOpAM5-eCaf0_0",
@@ -23,6 +24,8 @@
     try {
       const app = firebase.initializeApp(firebaseConfig);
       window.__db = firebase.firestore(app);
+      // Sign in anonymously so Firestore rules can require request.auth != null
+      firebase.auth(app).signInAnonymously().catch(e => console.warn("[caroninhas] anon auth failed:", e));
     } catch(e) { console.error("[caroninhas] Firebase init failed:", e); }
   </script>
   <style>
@@ -561,13 +564,25 @@
     // ═══════════════════════════════════════════
     
     // Promise that resolves when Firebase is ready (max 5s wait)
+    // Resolves after Firebase is ready AND anonymous auth is signed in
     const __dbReady = new Promise(resolve => {
-      if (window.__db) return resolve(window.__db);
-      let attempts = 0;
-      const check = setInterval(() => {
-        if (window.__db) { clearInterval(check); resolve(window.__db); }
-        else if (++attempts > 50) { clearInterval(check); resolve(null); } // 5s timeout
-      }, 100);
+      const waitForDb = (cb) => {
+        if (window.__db) return cb();
+        let n = 0;
+        const t = setInterval(() => {
+          if (window.__db) { clearInterval(t); cb(); }
+          else if (++n > 50) { clearInterval(t); resolve(null); }
+        }, 100);
+      };
+      waitForDb(() => {
+        const auth = typeof firebase !== "undefined" ? firebase.auth() : null;
+        if (!auth) return resolve(window.__db);
+        const unsub = auth.onAuthStateChanged(user => {
+          if (user) { unsub(); resolve(window.__db); }
+        });
+        // Fallback: if auth takes too long, proceed anyway
+        setTimeout(() => { unsub(); resolve(window.__db); }, 5000);
+      });
     });
     
     function lsGet() {

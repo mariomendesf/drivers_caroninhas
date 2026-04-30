@@ -524,13 +524,25 @@ function DIR(lang) { return lang === "en" ? DIR_EN : DIR_PT; }
 // ═══════════════════════════════════════════
 
 // Promise that resolves when Firebase is ready (max 5s wait)
+// Resolves after Firebase is ready AND anonymous auth is signed in
 const __dbReady = new Promise(resolve => {
-  if (window.__db) return resolve(window.__db);
-  let attempts = 0;
-  const check = setInterval(() => {
-    if (window.__db) { clearInterval(check); resolve(window.__db); }
-    else if (++attempts > 50) { clearInterval(check); resolve(null); } // 5s timeout
-  }, 100);
+  const waitForDb = (cb) => {
+    if (window.__db) return cb();
+    let n = 0;
+    const t = setInterval(() => {
+      if (window.__db) { clearInterval(t); cb(); }
+      else if (++n > 50) { clearInterval(t); resolve(null); }
+    }, 100);
+  };
+  waitForDb(() => {
+    const auth = typeof firebase !== "undefined" ? firebase.auth() : null;
+    if (!auth) return resolve(window.__db);
+    const unsub = auth.onAuthStateChanged(user => {
+      if (user) { unsub(); resolve(window.__db); }
+    });
+    // Fallback: if auth takes too long, proceed anyway
+    setTimeout(() => { unsub(); resolve(window.__db); }, 5000);
+  });
 });
 
 function lsGet() {
