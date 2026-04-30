@@ -2453,9 +2453,6 @@ function Saldos({ st, upd, myId, initialView }) {
                           </div>
                           {driver?.pix && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                              <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", background: C.dim, borderRadius: 5, padding: "2px 7px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {driver.pix}
-                              </span>
                               <button
                                 onClick={() => {
                                   const text = driver.pix;
