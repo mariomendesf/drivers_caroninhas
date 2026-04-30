@@ -1670,7 +1670,7 @@ function Home({ st, upd, setTab, myId }) {
           <div>
             <SectionLabel>{isCurrentWeek ? t("home_trips_this_week") : t("home_trips_week")}</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {sorted.map(tr => <TripCard key={tr.id} trip={tr} st={st} upd={upd} showDelete={tr.registeredBy === myId || !tr.registeredBy} weekDn={driverNet} weekTrips={weekTrips} allTrips={allConfirmed} myId={myId} />)}
+              {sorted.map(tr => <TripCard key={tr.id} trip={tr} st={st} upd={upd} showDelete={tr.registeredBy === myId || !tr.registeredBy || myId === ADMIN_ID} weekDn={driverNet} weekTrips={weekTrips} allTrips={allConfirmed} myId={myId} />)}
             </div>
           </div>
         ) : (
