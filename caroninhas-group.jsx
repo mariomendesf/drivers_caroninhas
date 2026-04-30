@@ -1347,7 +1347,7 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
                 </div>
               );
             })}
-            {!readOnly && trip.registeredBy === myId && showDelete && (
+            {!readOnly && showDelete && (
               <button onClick={deleteTrip} style={{ marginTop: 4, background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 8, padding: "8px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif", width: "100%" }}>
                 {t("trip_delete")}
               </button>
