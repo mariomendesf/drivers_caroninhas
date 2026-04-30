@@ -2448,7 +2448,7 @@ function Saldos({ st, upd, myId, initialView }) {
                   const isOpen = expanded[dId];
                   return (
                     <div key={dId} style={{ background: C.card, border: `1px solid ${borderCol}`, borderRadius: 14, overflow: "hidden" }}>
-                      <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div onClick={() => toggleExp(dId)} style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
                         <div>
                           <div style={{ fontSize: 16, color: C.text, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             {name}
@@ -2460,7 +2460,8 @@ function Saldos({ st, upd, myId, initialView }) {
                           {driver?.pix && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   const text = driver.pix;
                                   const tryExecCommand = () => {
                                     const ta = document.createElement("textarea");
@@ -2509,9 +2510,7 @@ function Saldos({ st, upd, myId, initialView }) {
                                 </div>
                               </div>
                           }
-                          <button onClick={() => toggleExp(dId)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 11, padding: "4px 0 0", fontFamily: "Barlow, sans-serif" }}>
-                            {isOpen ? (lang === "en" ? "▲ hide" : "▲ ocultar") : (lang === "en" ? "▼ details" : "▼ detalhes")}
-                          </button>
+                          <div style={{ color: C.muted, fontSize: 11, paddingTop: 4 }}>{isOpen ? "▲" : "▼"}</div>
                         </div>
                       </div>
                       {isOpen && (
