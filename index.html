@@ -1083,16 +1083,16 @@
       const t = mkT(lang);
       const cc = trip.carCost;
       const [editing, setEditing] = useState(false);
-      const [gas,  setGas]  = useState(String(cc?.gas  ?? DEF_GAS));
-      const [toll, setToll] = useState(String(cc?.toll ?? DEF_TOLL));
+      const [gas,  setGas]  = useState(cc?.gas  != null ? String(cc.gas)  : "");
+      const [toll, setToll] = useState(cc?.toll != null ? String(cc.toll) : "");
       const [paid, setPaid] = useState(cc?.paid ?? false);
     
       // Sync local state when trip.carCost changes externally (after save/remove)
       const { useEffect } = React;
       useEffect(() => {
         const c = trip.carCost;
-        setGas(String(c?.gas  ?? DEF_GAS));
-        setToll(String(c?.toll ?? DEF_TOLL));
+        setGas(c?.gas  != null ? String(c.gas)  : "");
+        setToll(c?.toll != null ? String(c.toll) : "");
         setPaid(c?.paid ?? false);
       }, [trip.carCost]);
     
@@ -3134,7 +3134,7 @@
       };
     
       const saveCarCosts = () => {
-        const dcc = { ...(st.driverCarCosts || {}), [myId]: { gas: parseFloat(gasVal) || DEF_GAS, toll: parseFloat(tollVal) || DEF_TOLL } };
+        const dcc = { ...(st.driverCarCosts || {}), [myId]: { gas: gasVal.trim() !== "" ? parseFloat(gasVal) || 0 : 0, toll: tollVal.trim() !== "" ? parseFloat(tollVal) || 0 : 0 } };
         upd({ ...st, driverCarCosts: dcc });
         setCcSaved(true);
         setTimeout(() => setCcSaved(false), 2000);
