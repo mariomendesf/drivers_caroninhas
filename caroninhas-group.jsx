@@ -233,6 +233,8 @@ const TR = {
     pass_set_btn: "Definir senha",
     pass_mismatch: "As senhas não coincidem",
     pass_too_short: "Mínimo 4 caracteres",
+    pass_too_long: "Máximo 8 caracteres",
+    pass_length_hint: "Entre 4 e 8 caracteres",
     admin_pass_title: "Senhas dos motoristas",
     admin_pass_reset_btn: "Resetar senha",
     admin_pass_reset_confirm: "Resetar senha de",
@@ -475,6 +477,8 @@ const TR = {
     pass_set_btn: "Set password",
     pass_mismatch: "Passwords don't match",
     pass_too_short: "Minimum 4 characters",
+    pass_too_long: "Maximum 8 characters",
+    pass_length_hint: "Between 4 and 8 characters",
     admin_pass_title: "Driver passwords",
     admin_pass_reset_btn: "Reset password",
     admin_pass_reset_confirm: "Reset password for",
@@ -3660,6 +3664,7 @@ function DriverSelector({ onUnlock, lang }) {
 
   const trySetPassword = async () => {
     if (newPass.length < 4) { setPassErr(t("pass_too_short")); return; }
+    if (newPass.length > 8) { setPassErr(t("pass_too_long")); return; }
     if (newPass !== confirmPass) { setPassErr(t("pass_mismatch")); return; }
     await setDriverPassword(selectedId, newPass, passMap);
     localStorage.setItem(MY_ID_KEY, selectedId);
@@ -3756,13 +3761,15 @@ function DriverSelector({ onUnlock, lang }) {
               <div style={{ fontSize: 12, color: C.amber }}>{t("pass_set_title")}</div>
             </div>
           </div>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>{t("pass_set_sub")}</div>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>{t("pass_set_sub")}</div>
+          <div style={{ fontSize: 12, color: C.amber, textAlign: "center", marginBottom: 14, fontWeight: 600 }}>{t("pass_length_hint")}</div>
           <input
             type="password"
             value={newPass}
             onChange={e => { setNewPass(e.target.value); setPassErr(""); }}
             onKeyDown={e => e.key === "Enter" && trySetPassword()}
             placeholder={t("pass_new_ph")}
+            maxLength={8}
             autoFocus
             style={{
               width: "100%", background: C.card,
@@ -3779,6 +3786,7 @@ function DriverSelector({ onUnlock, lang }) {
             onChange={e => { setConfirmPass(e.target.value); setPassErr(""); }}
             onKeyDown={e => e.key === "Enter" && trySetPassword()}
             placeholder={t("pass_confirm_ph")}
+            maxLength={8}
             style={{
               width: "100%", background: C.card,
               border: `1px solid ${passErr ? C.red : C.border}`,
