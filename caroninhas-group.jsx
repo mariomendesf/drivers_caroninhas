@@ -1362,7 +1362,7 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
                         onChange={e => setPaxEdits(prev => prev.map((x, j) => j === i ? { ...x, direction: e.target.value || undefined } : x))}
                         style={{ ...inputStyle, maxWidth: 90 }}
                       >
-                        <option value="">↕ Padrão</option>
+                        <option value="">{DIR(lang)[trip.direction]}</option>
                         <option value="ida">{DIR(lang).ida}</option>
                         <option value="volta">{DIR(lang).volta}</option>
                         <option value="ambas">{DIR(lang).ambas}</option>
