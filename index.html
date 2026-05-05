@@ -148,6 +148,13 @@
         trip_car_paid: "✓ pago",
         trip_pay_car: "Paguei ✓", trip_undo_car: "Desfazer",
         trip_delete: "🗑️ Apagar viagem",
+        trip_edit_pax: "✏️ Editar passageiros",
+        trip_pax_save: "Salvar",
+        trip_pax_cancel: "Cancelar",
+        trip_pax_remove: "✕",
+        trip_add_pax: "+ Adicionar passageiro",
+        trip_pax_price_ph: "R$/trecho",
+        trip_pax_limit: "Máx 4 passageiros",
         trip_pix_driver: (name) => `Pix de ${name}`,
         trip_copy_pix: "📋 Copiar Pix",
         trip_pix_copied: (name) => `✓ Pix de ${name} copiado!`,
@@ -176,7 +183,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v4.3.1 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v4.4 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -245,7 +252,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v4.3.1",
+        opts_version: "Caroninhas — Grupo v4.4",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -379,6 +386,13 @@
         trip_car_paid: "✓ paid",
         trip_pay_car: "Paid ✓", trip_undo_car: "Undo",
         trip_delete: "🗑️ Delete trip",
+        trip_edit_pax: "✏️ Edit passengers",
+        trip_pax_save: "Save",
+        trip_pax_cancel: "Cancel",
+        trip_pax_remove: "✕",
+        trip_add_pax: "+ Add passenger",
+        trip_pax_price_ph: "R$/stretch",
+        trip_pax_limit: "Max 4 passengers",
         trip_pix_driver: (name) => `${name}'s Pix`,
         trip_copy_pix: "📋 Copy Pix",
         trip_pix_copied: (name) => `✓ ${name}'s Pix copied!`,
@@ -1161,8 +1175,12 @@
       const [open, setOpen] = useState(false);
       const [editingDate, setEditingDate] = useState(false);
       const [dateVal, setDateVal] = useState(trip.date);
+      const [editingPassengers, setEditingPassengers] = useState(false);
+      const [paxEdits, setPaxEdits] = useState([]);
+      const [newPaxId, setNewPaxId] = useState("");
       const driver = st.drivers.find(d => d.id === trip.driverId);
       const driverDisplayName = driver?.name || trip.driverName || "?";
+      const canEdit = !readOnly && (myId === ADMIN_ID || trip.registeredBy === myId);
       const mult = trip.direction === "ambas" ? 2 : 1;
     
       // settledByRide is now stored per-pax field (set explicitly by user action)
@@ -1178,6 +1196,23 @@
         upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, date: dateVal, weekStart: getMonday(dateVal) } : t) });
         setEditingDate(false);
       };
+    
+      const startEditPax = () => {
+        setPaxEdits((trip.passengers || []).map(p => ({ ...p, _priceStr: String(p.price ?? PRICE) })));
+        setNewPaxId("");
+        setEditingPassengers(true);
+      };
+      const savePaxEdits = () => {
+        upd({ ...st, trips: st.trips.map(tr => tr.id !== trip.id ? tr : {
+          ...tr,
+          passengers: paxEdits.map(({ _priceStr, ...p }) => {
+            const parsed = parseFloat(_priceStr);
+            return { ...p, price: (!isNaN(parsed) && parsed !== PRICE) ? parsed : undefined };
+          }),
+        })});
+        setEditingPassengers(false);
+      };
+      const cancelPaxEdit = () => setEditingPassengers(false);
     
       const rowStyle = {
         background: C.card,
@@ -1328,13 +1363,13 @@
             <div style={editBar}>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ marginBottom: 2 }}>
-                  {!readOnly && trip.registeredBy === myId && !editingDate && (
+                  {canEdit && !editingDate && (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span style={{ fontSize: 12, color: C.muted }}>📅 {fmtFull(trip.date)}</span>
                       <button onClick={() => { setDateVal(trip.date); setEditingDate(true); }} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", padding: 0, fontFamily: "Barlow, sans-serif" }}>{t("trip_edit_date")}</button>
                     </div>
                   )}
-                  {!readOnly && trip.registeredBy === myId && editingDate && (
+                  {canEdit && editingDate && (
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <input type="date" value={dateVal} onChange={e => setDateVal(e.target.value)}
                         style={{ flex: 1, background: C.dim, border: `1px solid ${C.amber}55`, borderRadius: 8, padding: "7px 10px", color: C.text, fontSize: 13, outline: "none", fontFamily: "Barlow, sans-serif" }} />
@@ -1342,63 +1377,125 @@
                       <button onClick={() => setEditingDate(false)} style={{ background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 7, padding: "7px 10px", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>✕</button>
                     </div>
                   )}
-                  {(readOnly || trip.registeredBy !== myId) && (
+                  {!canEdit && (
                     <span style={{ fontSize: 12, color: C.muted }}>📅 {fmtFull(trip.date)}</span>
                   )}
                 </div>
-                {pax.map(p => {
-                  const pm = paxMult(p, trip.direction);
-                  const pDir = p.direction || trip.direction;
-                  const iAmDriver = !readOnly && trip.registeredBy === myId;
+                {editingPassengers ? (() => {
+                  const effectiveDriverId = trip.driverOwnerId || trip.registeredBy;
+                  const alreadyIds = paxEdits.map(p => p.driverId).filter(Boolean);
+                  const availToAdd = st.drivers.filter(d => d.id !== effectiveDriverId && !alreadyIds.includes(d.id));
+                  const inputStyle = { background: C.dim, border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 8px", color: C.text, fontSize: 12, outline: "none", fontFamily: "Barlow, sans-serif" };
                   return (
-                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                      <div style={{ fontSize: 13, color: p.paid ? C.muted : C.text, flex: 1, minWidth: 0 }}>
-                        <div>{p.name}</div>
-                        <div style={{ display: "flex", gap: 5, marginTop: 2 }}>
-                          {p.direction && p.direction !== trip.direction && <span style={{ color: C.blue, fontSize: 10, background: C.blue+"18", borderRadius: 4, padding: "1px 5px" }}>{DIR(lang)[pDir]}</span>}
-                          {paxPrice(p) !== PRICE && <span style={{ color: C.amber, fontSize: 10, background: C.amberDim, borderRadius: 4, padding: "1px 5px" }}>{`R$${paxPrice(p)}`}{t("stretch_per")}</span>}
-                          <span style={{ color: p.paid ? C.green : C.muted, fontSize: 10 }}>{R(paxPrice(p) * pm)}</span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {paxEdits.map((p, i) => (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 13, color: C.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                          <input
+                            type="number" min="0" value={p._priceStr}
+                            onChange={e => setPaxEdits(prev => prev.map((x, j) => j === i ? { ...x, _priceStr: e.target.value } : x))}
+                            placeholder={String(PRICE)}
+                            style={{ ...inputStyle, width: 70 }}
+                          />
+                          <select
+                            value={p.direction || ""}
+                            onChange={e => setPaxEdits(prev => prev.map((x, j) => j === i ? { ...x, direction: e.target.value || undefined } : x))}
+                            style={{ ...inputStyle, maxWidth: 90 }}
+                          >
+                            <option value="">↕ Padrão</option>
+                            <option value="ida">{DIR(lang).ida}</option>
+                            <option value="volta">{DIR(lang).volta}</option>
+                            <option value="ambas">{DIR(lang).ambas}</option>
+                          </select>
+                          <button onClick={() => setPaxEdits(prev => prev.filter((_, j) => j !== i))} style={{ background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 6, padding: "5px 9px", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif", flexShrink: 0 }}>
+                            {t("trip_pax_remove")}
+                          </button>
                         </div>
+                      ))}
+                      {paxEdits.length < 4 && availToAdd.length > 0 && (
+                        <select value={newPaxId} onChange={e => {
+                          const d = st.drivers.find(x => x.id === e.target.value);
+                          if (!d) return;
+                          setPaxEdits(prev => [...prev, { id: uid(), driverId: d.id, name: d.name, _priceStr: String(PRICE) }]);
+                          setNewPaxId("");
+                        }} style={{ ...inputStyle, width: "100%" }}>
+                          <option value="">{t("trip_add_pax")}</option>
+                          {availToAdd.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      )}
+                      {paxEdits.length >= 4 && <span style={{ fontSize: 11, color: C.muted }}>{t("trip_pax_limit")}</span>}
+                      <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                        <button onClick={savePaxEdits} style={{ flex: 1, background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 8, padding: "9px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                          {t("trip_pax_save")}
+                        </button>
+                        <button onClick={cancelPaxEdit} style={{ flex: 1, background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 8, padding: "9px 0", fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                          {t("trip_pax_cancel")}
+                        </button>
                       </div>
-                      {(() => {
-                        const pCancelled = p.settledByRide && !p.paid;
-                        if (pCancelled) {
-                          return (
-                            <div style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, fontFamily: "Barlow, sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>
-                              {t("trip_quitado_btn")}
-                            </div>
-                          );
-                        }
-                        if (iAmDriver) {
-                          return (
-                            <button onClick={() => togglePaxPaid(p.id)} style={{
-                              background: p.paid ? C.greenDim : C.dim,
-                              border: `1px solid ${p.paid ? C.green+"44" : C.border}`,
-                              color: p.paid ? C.green : C.muted,
-                              borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600,
-                              cursor: "pointer", fontFamily: "Barlow, sans-serif", flexShrink: 0,
-                            }}>
-                              {p.paid ? t("trip_received") : t("trip_mark_received")}
-                            </button>
-                          );
-                        }
-                        return (
-                          <span style={{ fontSize: 11, color: p.paid ? C.green : C.muted, flexShrink: 0 }}>
-                            {p.paid ? t("received_label_short") : t("trip_pending_label")}
-                          </span>
-                        );
-                      })()}
                     </div>
                   );
-                })}
-                {!readOnly && showDelete && (
+                })() : (
+                  <>
+                    {pax.map(p => {
+                      const pm = paxMult(p, trip.direction);
+                      const pDir = p.direction || trip.direction;
+                      const iAmDriver = canEdit;
+                      return (
+                        <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                          <div style={{ fontSize: 13, color: p.paid ? C.muted : C.text, flex: 1, minWidth: 0 }}>
+                            <div>{p.name}</div>
+                            <div style={{ display: "flex", gap: 5, marginTop: 2 }}>
+                              {p.direction && p.direction !== trip.direction && <span style={{ color: C.blue, fontSize: 10, background: C.blue+"18", borderRadius: 4, padding: "1px 5px" }}>{DIR(lang)[pDir]}</span>}
+                              {paxPrice(p) !== PRICE && <span style={{ color: C.amber, fontSize: 10, background: C.amberDim, borderRadius: 4, padding: "1px 5px" }}>{`R$${paxPrice(p)}`}{t("stretch_per")}</span>}
+                              <span style={{ color: p.paid ? C.green : C.muted, fontSize: 10 }}>{R(paxPrice(p) * pm)}</span>
+                            </div>
+                          </div>
+                          {(() => {
+                            const pCancelled = p.settledByRide && !p.paid;
+                            if (pCancelled) {
+                              return (
+                                <div style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, fontFamily: "Barlow, sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>
+                                  {t("trip_quitado_btn")}
+                                </div>
+                              );
+                            }
+                            if (iAmDriver) {
+                              return (
+                                <button onClick={() => togglePaxPaid(p.id)} style={{
+                                  background: p.paid ? C.greenDim : C.dim,
+                                  border: `1px solid ${p.paid ? C.green+"44" : C.border}`,
+                                  color: p.paid ? C.green : C.muted,
+                                  borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600,
+                                  cursor: "pointer", fontFamily: "Barlow, sans-serif", flexShrink: 0,
+                                }}>
+                                  {p.paid ? t("trip_received") : t("trip_mark_received")}
+                                </button>
+                              );
+                            }
+                            return (
+                              <span style={{ fontSize: 11, color: p.paid ? C.green : C.muted, flexShrink: 0 }}>
+                                {p.paid ? t("received_label_short") : t("trip_pending_label")}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      );
+                    })}
+                    {canEdit && (
+                      <button onClick={startEditPax} style={{ marginTop: 2, background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 8, padding: "7px 0", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif", width: "100%" }}>
+                        {t("trip_edit_pax")}
+                      </button>
+                    )}
+                  </>
+                )}
+                {!readOnly && showDelete && !editingPassengers && (
                   <button onClick={deleteTrip} style={{ marginTop: 4, background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 8, padding: "8px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif", width: "100%" }}>
                     {t("trip_delete")}
                   </button>
                 )}
               </div>
-              {!readOnly && trip.registeredBy === myId && <CarCostEditor trip={trip} st={st} upd={upd} />}
-              {!readOnly && trip.registeredBy === myId && <div style={{ fontSize: 11, color: C.muted, marginTop: 10 }}>{lang === "en" ? "Tap any status again to undo." : "Toque novamente em qualquer status para desfazer."}</div>}
+              {canEdit && <CarCostEditor trip={trip} st={st} upd={upd} />}
+              {canEdit && <div style={{ fontSize: 11, color: C.muted, marginTop: 10 }}>{lang === "en" ? "Tap any status again to undo." : "Toque novamente em qualquer status para desfazer."}</div>}
             </div>
           )}
         </div>
