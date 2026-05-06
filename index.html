@@ -1405,9 +1405,9 @@
                             style={{ ...inputStyle, maxWidth: 90 }}
                           >
                             <option value="">{DIR(lang)[trip.direction]}</option>
-                            <option value="ida">{DIR(lang).ida}</option>
-                            <option value="volta">{DIR(lang).volta}</option>
-                            <option value="ambas">{DIR(lang).ambas}</option>
+                            {trip.direction !== "ida" && <option value="ida">{DIR(lang).ida}</option>}
+                            {trip.direction !== "volta" && <option value="volta">{DIR(lang).volta}</option>}
+                            {trip.direction !== "ambas" && <option value="ambas">{DIR(lang).ambas}</option>}
                           </select>
                           <button onClick={() => setPaxEdits(prev => prev.filter((_, j) => j !== i))} style={{ background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 6, padding: "5px 9px", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif", flexShrink: 0 }}>
                             {t("trip_pax_remove")}
