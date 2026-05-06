@@ -1138,6 +1138,7 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
   const [editingPassengers, setEditingPassengers] = useState(false);
   const [paxEdits, setPaxEdits] = useState([]);
   const [newPaxId, setNewPaxId] = useState("");
+  const [newPaxCustomName, setNewPaxCustomName] = useState("");
   const driver = st.drivers.find(d => d.id === trip.driverId);
   const driverDisplayName = driver?.name || trip.driverName || "?";
   const canEdit = !readOnly && (myId === ADMIN_ID || trip.registeredBy === myId);
@@ -1160,6 +1161,7 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
   const startEditPax = () => {
     setPaxEdits((trip.passengers || []).map(p => ({ ...p, _priceStr: String(p.price ?? PRICE) })));
     setNewPaxId("");
+    setNewPaxCustomName("");
     setEditingPassengers(true);
   };
   const savePaxEdits = () => {
@@ -1372,16 +1374,37 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
                       </button>
                     </div>
                   ))}
-                  {paxEdits.length < 4 && availToAdd.length > 0 && (
-                    <select value={newPaxId} onChange={e => {
-                      const d = st.drivers.find(x => x.id === e.target.value);
-                      if (!d) return;
-                      setPaxEdits(prev => [...prev, { id: uid(), driverId: d.id, name: d.name, _priceStr: String(PRICE) }]);
-                      setNewPaxId("");
-                    }} style={{ ...inputStyle, width: "100%" }}>
-                      <option value="">{t("trip_add_pax")}</option>
-                      {availToAdd.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
+                  {paxEdits.length < 4 && (
+                    newPaxId === "__custom__" ? (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input
+                          autoFocus
+                          value={newPaxCustomName}
+                          onChange={e => setNewPaxCustomName(e.target.value)}
+                          placeholder={lang === "en" ? "Passenger name" : "Nome do passageiro"}
+                          style={{ ...inputStyle, flex: 1 }}
+                        />
+                        <button onClick={() => {
+                          const name = newPaxCustomName.trim();
+                          if (!name) return;
+                          setPaxEdits(prev => [...prev, { id: uid(), name, _priceStr: String(PRICE) }]);
+                          setNewPaxId(""); setNewPaxCustomName("");
+                        }} style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>+</button>
+                        <button onClick={() => { setNewPaxId(""); setNewPaxCustomName(""); }} style={{ background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 6, padding: "5px 9px", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>✕</button>
+                      </div>
+                    ) : (
+                      <select value={newPaxId} onChange={e => {
+                        if (e.target.value === "__custom__") { setNewPaxId("__custom__"); return; }
+                        const d = st.drivers.find(x => x.id === e.target.value);
+                        if (!d) return;
+                        setPaxEdits(prev => [...prev, { id: uid(), driverId: d.id, name: d.name, _priceStr: String(PRICE) }]);
+                        setNewPaxId("");
+                      }} style={{ ...inputStyle, width: "100%" }}>
+                        <option value="">{t("trip_add_pax")}</option>
+                        {availToAdd.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        <option value="__custom__">{lang === "en" ? "Other (type name)" : "Outro (digitar nome)"}</option>
+                      </select>
+                    )
                   )}
                   {paxEdits.length >= 4 && <span style={{ fontSize: 11, color: C.muted }}>{t("trip_pax_limit")}</span>}
                   <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
