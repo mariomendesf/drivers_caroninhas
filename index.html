@@ -1812,14 +1812,6 @@
           </div>
     
           <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <StatCard label={t("home_owe")} value={R(totalOwed)} color={totalOwed > 0 ? C.red : C.green}
-                sub={totalOwed > 0 ? t("home_to_drivers") : quitadoComCarona ? t("home_cancelled_ride") : t("home_all_paid")} />
-              <StatCard label={t("home_to_receive")} value={R(totalPending)} color={totalPending > 0 ? C.amber : C.green}
-                sub={totalPending > 0 ? t("home_from_pax") : quitadoComCarona ? t("home_cancelled_ride") : t("home_all_received")} />
-            </div>
-    
             {/* CTA */}
             <button onClick={() => setTab("add")} style={{
               background: C.amber, color: "#000", border: "none", borderRadius: 13,
