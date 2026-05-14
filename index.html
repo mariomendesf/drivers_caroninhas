@@ -1192,7 +1192,12 @@
       const togglePaxPaid = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: !p.paid } : p) } : t) });
       const saveDate = () => {
         if (!dateVal) return;
-        const conflict = st.trips.some(t => t.id !== trip.id && t.date === dateVal);
+        const effectiveDriver = trip.driverOwnerId || trip.registeredBy;
+        const conflict = st.trips.some(t => {
+          if (t.id === trip.id || t.date !== dateVal) return false;
+          const tDriver = t.driverOwnerId || t.registeredBy;
+          return tDriver === effectiveDriver;
+        });
         if (conflict) { alert(t("trip_duplicate_date")); return; }
         upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, date: dateVal, weekStart: getMonday(dateVal) } : t) });
         setEditingDate(false);
