@@ -2586,7 +2586,20 @@ function Saldos({ st, upd, myId, initialView }) {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const text = driver.pix;
+                                  let text = driver.pix;
+                                  if (myId === ADMIN_ID && iOwePending > 0) {
+                                    const DIR_SHORT = { ida: "ida", volta: "volta", ambas: "ida+volta" };
+                                    const pendingTrips = iOweTrips.filter(tr => {
+                                      if (tr.role === "passageiro" && tr.registeredBy === myId) return !tr.paid && tr.settledByRide !== true;
+                                      const pax = (tr.passengers||[]).find(p => p.driverId === myId);
+                                      return pax && !pax.paid && pax.settledByRide !== true;
+                                    }).sort((a,b) => a.date.localeCompare(b.date));
+                                    const tripList = pendingTrips.map(tr => {
+                                      const dir = tr.role === "passageiro" ? tr.direction : ((tr.passengers||[]).find(p => p.driverId === myId)?.direction || tr.direction);
+                                      return `${weekday(tr.date, lang).toLowerCase()} ${fmtFull(tr.date)} (${DIR_SHORT[dir] || dir})`;
+                                    }).join(", ");
+                                    text = `Fazer pix de ${R(iOwePending)} para ${driver.pix} com a mensagem: caronas referentes aos dias ${tripList}`;
+                                  }
                                   const tryExecCommand = () => {
                                     const ta = document.createElement("textarea");
                                     ta.value = text;
