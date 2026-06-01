@@ -2522,7 +2522,7 @@ function Saldos({ st, upd, myId, initialView }) {
                       const newSettle = consume >= cpTrechos ? true : "partial";
                       updTrips = updTrips.map(t => t.id !== ct.id ? t : {
                         ...t,
-                        passengers: t.passengers.map(p => p.id !== cp.id ? p : { ...p, settledByRide: newSettle })
+                        passengers: t.passengers.map(p => p.id !== cp.id ? p : { ...p, settledByRide: newSettle, settledByRideFor: debtTrip.id })
                       });
                     }
 
@@ -2552,14 +2552,13 @@ function Saldos({ st, upd, myId, initialView }) {
                       const { settledByRide: _, ...rest } = t;
                       return rest;
                     });
-                    // Also clear settledByRide on credit trips (myId drove dId) that were consumed
-                    // Re-identify: trips where myId drove dId, now have settledByRide set
+                    // Also clear settledByRide on credit trips that were specifically consumed for this debt trip
                     updTrips = updTrips.map(t => {
                       if (t.role !== "motorista" || t.registeredBy !== myId) return t;
-                      const hasCredited = (t.passengers||[]).some(p => p.driverId === dId && p.settledByRide);
+                      const hasCredited = (t.passengers||[]).some(p => p.driverId === dId && p.settledByRideFor === debtTrip.id);
                       if (!hasCredited) return t;
                       return { ...t, passengers: t.passengers.map(p =>
-                        p.driverId === dId && p.settledByRide ? { ...p, settledByRide: undefined } : p
+                        p.driverId === dId && p.settledByRideFor === debtTrip.id ? { ...p, settledByRide: undefined, settledByRideFor: undefined } : p
                       )};
                     });
                     upd({ ...st, trips: updTrips });
