@@ -2596,7 +2596,7 @@ function Saldos({ st, upd, myId, initialView }) {
                                     }).sort((a,b) => a.date.localeCompare(b.date));
                                     const tripList = pendingTrips.map(tr => {
                                       const dir = tr.role === "passageiro" ? tr.direction : ((tr.passengers||[]).find(p => p.driverId === myId)?.direction || tr.direction);
-                                      return `${weekday(tr.date, lang).toLowerCase()} ${fmtFull(tr.date)} (${DIR_SHORT[dir] || dir})`;
+                                      return `${fmtShort(tr.date)} (${DIR_SHORT[dir] || dir})`;
                                     }).join(", ");
                                     text = `Fazer pix de ${R(iOwePending)} para ${driver.pix} com a mensagem: caronas referentes aos dias ${tripList}`;
                                   }
