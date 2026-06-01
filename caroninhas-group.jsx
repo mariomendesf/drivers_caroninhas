@@ -732,10 +732,10 @@ function calcRideCredits(allTrips, myId) {
     if (t.pendingConfirmation || t.role !== "motorista" || t.registeredBy !== myId) return;
     (t.passengers || []).forEach(p => {
       if (!p.driverId || p.driverId === "__custom__") return;
-      if (p.paid || p.settledByRide) return; // already resolved — no credit
+      if (p.paid || p.settledByRide === true) return; // fully resolved — no credit
       ensure(p.driverId);
       const trechos = paxMult(p, t.direction); // 1 for ida/volta, 2 for ambas
-      credits[p.driverId] += trechos;
+      credits[p.driverId] += trechos - (p.settledByRideTrechos || 0);
     });
   });
   return credits;
@@ -2504,7 +2504,7 @@ function Saldos({ st, upd, myId, initialView }) {
                     const creditTrips = allConfirmed
                       .filter(wt => !wt.pendingConfirmation && wt.role === "motorista"
                         && wt.registeredBy === myId
-                        && (wt.passengers||[]).some(p => p.driverId === dId && !p.paid && !p.settledByRide))
+                        && (wt.passengers||[]).some(p => p.driverId === dId && !p.paid && p.settledByRide !== true))
                       .sort((a, b) => a.date.localeCompare(b.date));
 
                     let trechosLeft = trechosNeeded;
@@ -2513,16 +2513,18 @@ function Saldos({ st, upd, myId, initialView }) {
                     // Consume credit FIFO from creditTrips
                     for (const ct of creditTrips) {
                       if (trechosLeft <= 0) break;
-                      const cp = ct.passengers.find(p => p.driverId === dId && !p.paid && !p.settledByRide);
+                      const cp = ct.passengers.find(p => p.driverId === dId && !p.paid && p.settledByRide !== true);
                       if (!cp) continue;
-                      const cpTrechos = paxMult(cp, ct.direction);
+                      const cpTrechosTotal = paxMult(cp, ct.direction);
+                      const cpTrechos = cpTrechosTotal - (cp.settledByRideTrechos || 0); // remaining
                       // Mark this credit passenger as settledByRide (their debt to myId is consumed)
                       const consume = Math.min(cpTrechos, trechosLeft);
                       trechosLeft -= consume;
-                      const newSettle = consume >= cpTrechos ? true : "partial";
+                      const newSettledTrechos = (cp.settledByRideTrechos || 0) + consume;
+                      const newSettle = newSettledTrechos >= cpTrechosTotal ? true : "partial";
                       updTrips = updTrips.map(t => t.id !== ct.id ? t : {
                         ...t,
-                        passengers: t.passengers.map(p => p.id !== cp.id ? p : { ...p, settledByRide: newSettle, settledByRideFor: debtTrip.id })
+                        passengers: t.passengers.map(p => p.id !== cp.id ? p : { ...p, settledByRide: newSettle, settledByRideTrechos: newSettledTrechos, settledByRideFor: debtTrip.id })
                       });
                     }
 
@@ -2557,9 +2559,11 @@ function Saldos({ st, upd, myId, initialView }) {
                       if (t.role !== "motorista" || t.registeredBy !== myId) return t;
                       const hasCredited = (t.passengers||[]).some(p => p.driverId === dId && p.settledByRideFor === debtTrip.id);
                       if (!hasCredited) return t;
-                      return { ...t, passengers: t.passengers.map(p =>
-                        p.driverId === dId && p.settledByRideFor === debtTrip.id ? { ...p, settledByRide: undefined, settledByRideFor: undefined } : p
-                      )};
+                      return { ...t, passengers: t.passengers.map(p => {
+                        if (p.driverId !== dId || p.settledByRideFor !== debtTrip.id) return p;
+                        const { settledByRide: _a, settledByRideTrechos: _b, settledByRideFor: _c, ...rest } = p;
+                        return rest;
+                      })};
                     });
                     upd({ ...st, trips: updTrips });
                   };
