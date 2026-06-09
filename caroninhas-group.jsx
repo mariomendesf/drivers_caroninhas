@@ -100,6 +100,12 @@ const TR = {
     ride_credits_with: (n, name) => `${n} trecho${n !== 1 ? "s" : ""} com ${name}`,
     trip_mark_paid: "Marcar pago",  trip_undo_paid: "✓ Pago",
     trip_mark_received: "Marcar recebido", trip_received: "✓ Recebido",
+    pax_mark_paid: "Marquei pago",
+    pax_awaiting_confirm: "Aguardando confirmação…",
+    pax_confirm_received: "Recebi ✓",
+    pax_reject_received: "Não recebi",
+    pax_payment_rejected: "⚠️ Não confirmado",
+    pax_said_paid: (name) => `${name} disse que pagou`,
     trip_quitado_btn: "🤝 Quitado c/ carona",
     trip_counter_ok: "tudo certo ✓",
     trip_paid_count: (a, b) => `${a}/${b} pagaram`,
@@ -143,7 +149,7 @@ const TR = {
     your_pix_ph: "Seu pix (opcional)",
     other_pix_ph: "CPF, e-mail, telefone...",
     car_cost_sub2: "Valores padrão ao registrar como motorista.",
-    price_per_stretch_label: (v) => `v4.4 · Preço por trecho: ${v}`,
+    price_per_stretch_label: (v) => `v4.5 · Preço por trecho: ${v}`,
     saldos_title: "Saldos",
     saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
     saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -212,7 +218,7 @@ const TR = {
     opts_delete_pass_ph: "Senha",
     opts_delete_wrong: "Senha incorreta",
     opts_delete_do: "Apagar tudo",
-    opts_version: "Caroninhas — Grupo v4.4",
+    opts_version: "Caroninhas — Grupo v4.5",
     opts_firebase_ok: "☁️ Firebase conectado",
     opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
     // Lock
@@ -338,6 +344,12 @@ const TR = {
     ride_credits_with: (n, name) => `${n} stretch${n !== 1 ? "es" : ""} credit with ${name}`,
     trip_mark_paid: "Mark paid", trip_undo_paid: "✓ Paid",
     trip_mark_received: "Mark received", trip_received: "✓ Received",
+    pax_mark_paid: "Mark as paid",
+    pax_awaiting_confirm: "Awaiting confirmation…",
+    pax_confirm_received: "Received ✓",
+    pax_reject_received: "Didn't receive",
+    pax_payment_rejected: "⚠️ Not confirmed",
+    pax_said_paid: (name) => `${name} says they paid`,
     trip_quitado_btn: "🤝 Settled by ride",
     trip_counter_ok: "all good ✓",
     trip_paid_count: (a, b) => `${a}/${b} paid`,
@@ -709,7 +721,7 @@ function calcBalances(trips, myId) {
             if (driverOf) {
               ensure(driverOf);
               driverNet[driverOf].iOwe += amt;
-              if (p.paid || p.settledByRide) driverNet[driverOf].iOwePaid += amt;
+              if (p.paid || p.settledByRide || p.paidByDebtor) driverNet[driverOf].iOwePaid += amt;
             }
           }
         });
@@ -1150,6 +1162,9 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
   const deleteTrip = (e) => { e.stopPropagation(); const msg = lang === "en" ? "Delete this trip?" : "Apagar esta viagem?"; if (window.confirm(msg)) upd({ ...st, trips: st.trips.filter(t => t.id !== trip.id) }); };
   const togglePaid = () => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, paid: !t.paid } : t) });
   const togglePaxPaid = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: !p.paid } : p) } : t) });
+  const paxMarkPaidByDebtor = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: true, paidRejected: false } : p) } : t) });
+  const paxConfirmReceived = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: true, paidByDebtor: true } : p) } : t) });
+  const paxRejectPayment = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: false, paidRejected: true } : p) } : t) });
   const saveDate = () => {
     if (!dateVal) return;
     const effectiveDriver = trip.driverOwnerId || trip.registeredBy;
@@ -1448,6 +1463,18 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
                           );
                         }
                         if (iAmDriver) {
+                          if (p.paidByDebtor && !p.paid) {
+                            const debtorName = st.drivers.find(d => d.id === p.driverId)?.name || p.name;
+                            return (
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                                <span style={{ fontSize: 10, color: C.amber }}>{t("pax_said_paid", debtorName)}</span>
+                                <div style={{ display: "flex", gap: 4 }}>
+                                  <button onClick={() => paxConfirmReceived(p.id)} style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 7, padding: "4px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("pax_confirm_received")}</button>
+                                  <button onClick={() => paxRejectPayment(p.id)} style={{ background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 7, padding: "4px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("pax_reject_received")}</button>
+                                </div>
+                              </div>
+                            );
+                          }
                           return (
                             <button onClick={() => togglePaxPaid(p.id)} style={{
                               background: p.paid ? C.greenDim : C.dim,
@@ -1460,9 +1487,22 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
                             </button>
                           );
                         }
+                        if (p.paid) return <span style={{ fontSize: 11, color: C.green, flexShrink: 0 }}>{t("received_label_short")}</span>;
+                        if (p.paidByDebtor) return <span style={{ fontSize: 11, color: C.muted, flexShrink: 0, fontStyle: "italic" }}>{t("pax_awaiting_confirm")}</span>;
+                        if (p.paidRejected) return (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0 }}>
+                            <span style={{ fontSize: 10, color: C.red }}>{t("pax_payment_rejected")}</span>
+                            <button onClick={() => paxMarkPaidByDebtor(p.id)} style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 7, padding: "4px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("pax_mark_paid")}</button>
+                          </div>
+                        );
+                        if (p.driverId && p.driverId !== "__custom__") return (
+                          <button onClick={() => paxMarkPaidByDebtor(p.id)} style={{ background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif", flexShrink: 0 }}>
+                            {t("pax_mark_paid")}
+                          </button>
+                        );
                         return (
-                          <span style={{ fontSize: 11, color: p.paid ? C.green : C.muted, flexShrink: 0 }}>
-                            {p.paid ? t("received_label_short") : t("trip_pending_label")}
+                          <span style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>
+                            {t("trip_pending_label")}
                           </span>
                         );
                       })()}
@@ -2386,6 +2426,9 @@ function Saldos({ st, upd, myId, initialView }) {
 
   const markPaid    = (tripId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, paid: !t.paid } : t) });
   const markPaxPaid = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: !p.paid } : p) } : t) });
+  const saldosPaxMarkPaidByDebtor = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: true, paidRejected: false } : p) } : t) });
+  const saldosPaxConfirmReceived  = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: true, paidByDebtor: true } : p) } : t) });
+  const saldosPaxRejectPayment    = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: false, paidRejected: true } : p) } : t) });
 
   const cardS    = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 18px" };
   const btnGreen = { background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 7, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: 600 };
@@ -2671,22 +2714,28 @@ function Saldos({ st, upd, myId, initialView }) {
                                 }
                                 const isResolved = myPaid || mySettled === true;
                                 const isPartial = mySettled === "partial";
+                                const myPaidByDebtor = myPaxEntry?.paidByDebtor;
+                                const myPaidRejected = myPaxEntry?.paidRejected;
+                                const isAwaitingConfirm = !myPaid && myPaidByDebtor;
                                 const trechosNeeded = myPaxEntry ? paxMult(myPaxEntry, tr.direction) : paxMult(tr, tr.direction);
-                                const canSettle = !isResolved && !isPartial && myCreditsWithDId >= 1;
-                                const canSettlePartial = !isResolved && !isPartial && myCreditsWithDId > 0 && myCreditsWithDId < trechosNeeded;
-                                const rowColor = (isResolved || isPartial) ? C.muted : C.text;
+                                const canSettle = !isResolved && !isPartial && !isAwaitingConfirm && myCreditsWithDId >= 1;
+                                const canSettlePartial = !isResolved && !isPartial && !isAwaitingConfirm && myCreditsWithDId > 0 && myCreditsWithDId < trechosNeeded;
+                                const rowColor = (isResolved || isPartial || isAwaitingConfirm) ? C.muted : myPaidRejected ? C.red : C.text;
                                 return (
                                   <div key={tr.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
                                     <div style={{ fontSize: 13, color: rowColor }}>
                                       <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(tr.date, lang)}</span>{fmtFull(tr.date)} · {DIR(lang)[myDir]}
                                       {myPaid && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("paid_label_short")}</span>}
+                                      {isAwaitingConfirm && <span style={{ color: C.muted, marginLeft: 6, fontSize: 11, fontStyle: "italic" }}>{t("pax_awaiting_confirm")}</span>}
+                                      {myPaidRejected && !myPaidByDebtor && <span style={{ color: C.red, marginLeft: 6, fontSize: 11 }}>{t("pax_payment_rejected")}</span>}
                                       {mySettled === true && <><span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span><button onClick={() => handleUndoSettle(tr, myPaxEntry || null)} style={{ marginLeft: 6, background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 5, padding: "1px 7px", fontSize: 10, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("undo_settle")}</button></> }
                                       {mySettled === "partial" && <><span style={{ color: C.amber, marginLeft: 6, fontSize: 11 }}>{t("trip_partial_ride")}</span><button onClick={() => handleUndoSettle(tr, myPaxEntry || null)} style={{ marginLeft: 6, background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 5, padding: "1px 7px", fontSize: 10, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("undo_settle")}</button></> }
                                     </div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: isResolved ? C.muted : isPartial ? C.amber : C.red }}>{R(myAmt)}</span>
-                                      {!isResolved && !isPartial && tr.role === "passageiro" && myPaid === false && <button onClick={() => markPaid(tr.id)} style={btnGreen}>{t("extrato_pay")}</button>}
-                                      {(canSettle || canSettlePartial) && <button onClick={() => handleSettleWithRide(tr, myPaxEntry || null)} style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("settle_with_ride")}</button>}
+                                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: isResolved ? C.muted : isAwaitingConfirm ? C.muted : isPartial ? C.amber : myPaidRejected ? C.red : C.red }}>{R(myAmt)}</span>
+                                      {!isResolved && !isPartial && tr.role === "passageiro" && myPaid === false && !isAwaitingConfirm && <button onClick={() => markPaid(tr.id)} style={btnGreen}>{t("extrato_pay")}</button>}
+                                      {!isResolved && !isPartial && myPaxEntry && !isAwaitingConfirm && <button onClick={() => saldosPaxMarkPaidByDebtor(tr.id, myPaxEntry.id)} style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("pax_mark_paid")}</button>}
+                                      {(canSettle || canSettlePartial) && <button onClick={() => handleSettleWithRide(tr, myPaxEntry || null)} style={{ background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("settle_with_ride")}</button>}
                                     </div>
                                   </div>
                                 );
@@ -2719,6 +2768,8 @@ function Saldos({ st, upd, myId, initialView }) {
                                   const pm = paxMult(p, trip.direction);
                                   const pDir = p.direction || trip.direction;
                                   const settled = p.settledByRide;
+                                  const debtorName = st.drivers.find(d => d.id === p.driverId)?.name || p.name;
+                                  const isAwaitingConfirm = p.paidByDebtor && !p.paid;
                                   return (
                                     <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
                                       <div style={{ fontSize: 13, color: (p.paid || settled) ? C.muted : C.text }}>
@@ -2727,9 +2778,18 @@ function Saldos({ st, upd, myId, initialView }) {
                                         {settled === true && <span style={{ color: C.green, marginLeft: 6, fontSize: 11 }}>{t("trip_quitado")}</span>}
                                         {settled === "partial" && <span style={{ color: C.amber, marginLeft: 6, fontSize: 11 }}>{t("trip_partial_ride")}</span>}
                                       </div>
-                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                                         <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, color: (p.paid || settled === true) ? C.muted : settled === "partial" ? C.amber : C.amber }}>{R(paxPrice(p) * pm)}</span>
-                                        {!settled && <button onClick={() => markPaxPaid(trip.id, p.id)} style={{
+                                        {!settled && isAwaitingConfirm && (
+                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+                                            <span style={{ fontSize: 10, color: C.amber }}>{t("pax_said_paid", debtorName)}</span>
+                                            <div style={{ display: "flex", gap: 4 }}>
+                                              <button onClick={() => saldosPaxConfirmReceived(trip.id, p.id)} style={{ background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 7, padding: "4px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("pax_confirm_received")}</button>
+                                              <button onClick={() => saldosPaxRejectPayment(trip.id, p.id)} style={{ background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 7, padding: "4px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("pax_reject_received")}</button>
+                                            </div>
+                                          </div>
+                                        )}
+                                        {!settled && !isAwaitingConfirm && <button onClick={() => markPaxPaid(trip.id, p.id)} style={{
                                           background: p.paid ? C.greenDim : C.dim,
                                           border: `1px solid ${p.paid ? C.green+"44" : C.border}`,
                                           color: p.paid ? C.green : C.muted,
