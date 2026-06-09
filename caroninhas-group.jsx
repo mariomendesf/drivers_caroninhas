@@ -1541,6 +1541,7 @@ function Home({ st, upd, setTab, myId }) {
   const thisWeek = getMonday(todayStr());
   const [viewWeek, setViewWeek] = useState(thisWeek);
   const isCurrentWeek = viewWeek === thisWeek;
+  const maxWeek = st.trips.reduce((max, tr) => tr.weekStart > max ? tr.weekStart : max, thisWeek);
 
   const weekTrips = st.trips.filter(t => t.weekStart === viewWeek);
   const allConfirmed = st.trips.filter(t => !t.pendingConfirmation); // full history for cross-week quitado
@@ -1808,8 +1809,8 @@ function Home({ st, upd, setTab, myId }) {
                 {t("home_trips_n", weekTrips.length)}
               </span>
             </div>
-            <button onClick={() => setViewWeek(w => addWeeks(w, 1))} disabled={isCurrentWeek}
-              style={{ background: "none", border: "none", color: isCurrentWeek ? C.dim : C.muted, fontSize: 26, cursor: isCurrentWeek ? "default" : "pointer", padding: "0 4px", lineHeight: 1 }}>
+            <button onClick={() => setViewWeek(w => addWeeks(w, 1))} disabled={viewWeek >= maxWeek}
+              style={{ background: "none", border: "none", color: viewWeek >= maxWeek ? C.dim : C.muted, fontSize: 26, cursor: viewWeek >= maxWeek ? "default" : "pointer", padding: "0 4px", lineHeight: 1 }}>
               ›
             </button>
           </div>
