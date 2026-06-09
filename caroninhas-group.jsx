@@ -100,7 +100,7 @@ const TR = {
     ride_credits_with: (n, name) => `${n} trecho${n !== 1 ? "s" : ""} com ${name}`,
     trip_mark_paid: "Marcar pago",  trip_undo_paid: "✓ Pago",
     trip_mark_received: "Marcar recebido", trip_received: "✓ Recebido",
-    pax_mark_paid: "Marquei pago",
+    pax_mark_paid: "Marcar pago",
     pax_awaiting_confirm: "Aguardando confirmação…",
     pax_confirm_received: "Recebi ✓",
     pax_reject_received: "Não recebi",
