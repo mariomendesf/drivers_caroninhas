@@ -8,7 +8,7 @@ App React de controle de caronas para um grupo fixo de 5 motoristas (Mário, Rob
 - **Arquivo único:** `caroninhas-group.jsx` → buildar para `index.html`
 - **Deploy:** GitHub Pages em `https://mariomendesf.github.io/drivers_caroninhas/`
 - **Firebase:** projeto `caroninhas-group`, credenciais já embutidas no `index.html`
-- **Versão atual:** v4.1
+- **Versão atual:** v4.5
 
 ## Como buildar
 O JSX **não é servido diretamente** — precisa ser embutido num skeleton HTML:
@@ -87,6 +87,8 @@ O skeleton HTML inclui: React 18, ReactDOM, Babel standalone, Firebase v9 compat
     paid, price?,
     direction?,                    // trecho deste passageiro (override)
     settledByRide?,                // true | "partial" — quitado com crédito de carona
+    paidByDebtor?,                 // true — devedor declarou que pagou (aguarda confirmação do credor)
+    paidRejected?,                 // true — credor rejeitou a declaração de pagamento
   }],
   carCost?: { gas, toll, paid },
   note?, notePublic?,              // notePublic: visível para todos se true
@@ -99,6 +101,19 @@ O skeleton HTML inclui: React 18, ReactDOM, Babel standalone, Firebase v9 compat
 - **Simetria (Opção A):** ao consumir crédito da viagem X para pagar dívida Y, X é marcada como `settledByRide` do lado do credor também.
 - **Undo:** botão "Desfazer" na linha quitada restaura `settledByRide` dos dois lados.
 - **Sem lógica automática:** não há mais `isCancelledByRide` automático. A label "quitado c/ carona" só aparece via ação explícita do usuário.
+
+## Fluxo de pagamento bilateral (v4.5+)
+- **Devedor pode declarar pagamento:** botão "Marcar pago" nas viagens motorista onde ele é passageiro de grupo. Seta `p.paidByDebtor = true`.
+- **Efeito no saldo do devedor:** `calcBalances` conta `paidByDebtor` em `iOwePaid` apenas do lado do devedor → dívida some do saldo dele imediatamente.
+- **Credor vê alerta:** quando `p.paidByDebtor && !p.paid`, o credor vê "_Nome_ disse que pagou" com dois botões: "Recebi ✓" e "Não recebi".
+  - Confirmar → `p.paid = true` (finalizado para ambos)
+  - Rejeitar → `p.paidByDebtor = false, p.paidRejected = true` → dívida volta para o devedor com label "⚠️ Não confirmado" em vermelho
+- **Assimetria intencional:** `theyOwePaid` do credor só sobe com `p.paid` (confirmação real), nunca com `paidByDebtor`.
+- Implementado em `TripCard` (lista de passageiros) e `Saldos` (seções iOweTrips e theyOweTrips).
+
+## Navegação de semanas (v4.5+)
+- A Home calcula `maxWeek = max(weekStart de todas as viagens, thisWeek)`.
+- O botão "›" fica habilitado enquanto `viewWeek < maxWeek` — ou seja, é possível navegar para semanas futuras se houver pelo menos uma viagem registrada nelas.
 
 ## Regras de negócio importantes
 - **Uma viagem por dia por motorista** — duplicate check por `(date, effectiveDriver)`
@@ -119,6 +134,8 @@ O skeleton HTML inclui: React 18, ReactDOM, Babel standalone, Firebase v9 compat
 | Editar custo do carro ao confirmar | `driverOwnerId === myId` |
 | Toggle "Já paguei" custo carro | ADMIN_ID apenas |
 | Marcar passageiro como recebido | `registeredBy === myId` |
+| Declarar que pagou (paidByDebtor) | O próprio passageiro (`p.driverId === myId`) |
+| Confirmar/rejeitar pagamento declarado | `registeredBy === myId` (o motorista) |
 | Backup e zona de perigo | ADMIN_ID apenas |
 | Ver crédito de trechos e quitar | Qualquer motorista na sua perspectiva |
 | Desfazer quitação com carona | Quem quitou (myId no momento da ação) |
