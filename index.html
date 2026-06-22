@@ -880,7 +880,7 @@
     // ═══════════════════════════════════════════
     //  THEME
     // ═══════════════════════════════════════════
-    const C = {
+    const C_DEFAULT = {
       bg: "#0E0D12",
       card: "#1C1A22",
       card2: "#222030",
@@ -897,6 +897,25 @@
       dim: "rgba(255,255,255,0.055)",
       nav: "#17151E",
     };
+    const C_BRAZIL = {
+      bg: "#0A2C14",
+      card: "#0F2E1A",
+      card2: "#183D23",
+      border: "#1D5C32",
+      amber: "#FFDF00",
+      amberDim: "rgba(255,223,0,0.14)",
+      green: "#34D27A",
+      greenDim: "rgba(52,210,122,0.12)",
+      red: "#EF5F5F",
+      redDim: "rgba(239,95,95,0.12)",
+      blue: "#4080F5",
+      text: "#F0F5EC",
+      muted: "#6A9B7A",
+      dim: "rgba(255,255,255,0.07)",
+      nav: "#071A0B",
+    };
+    const C = { ...C_DEFAULT };
+    const BRAZIL_KEY = "caroninhas-grupo-brazil";
     
     // ═══════════════════════════════════════════
     //  GLOBAL CSS
@@ -3304,7 +3323,7 @@
       );
     }
     
-    function Opcoes({ st, upd, myId, onSignOut }) {
+    function Opcoes({ st, upd, myId, onSignOut, brazilTheme, onBrazilTheme }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
       const [drivers, setDrivers] = useState(st.drivers.length < 5
@@ -3469,6 +3488,18 @@
             </div>
     
             {myId === ADMIN_ID && <PixMaeCard st={st} upd={upd} inp={inp} lbl={lbl} cardS={cardS} />}
+    
+            {myId === ADMIN_ID && (
+              <div style={{ ...cardS, borderColor: "#FFDF0033" }}>
+                <label style={{ ...lbl, color: "#FFDF00" }}>🇧🇷 {lang === "en" ? "World Cup Theme" : "Tema Copa do Mundo"}</label>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ fontSize: 13, color: C.muted, flex: 1 }}>
+                    {lang === "en" ? "Brazil flag colors for the whole app" : "Cores da bandeira do Brasil em todo o app"}
+                  </div>
+                  <Toggle on={brazilTheme} onChange={onBrazilTheme} />
+                </div>
+              </div>
+            )}
     
             <div style={{ ...cardS, borderColor: "#7C5C2E55" }}>
               <label style={{ ...lbl, color: "#F5A623" }}>{t("opts_car_cost")}</label>
@@ -4060,6 +4091,8 @@
       });
       const [st, setSt] = useState(null);
       const [tab, setTab] = useState("home");
+      const [brazilTheme, setBrazilTheme] = useState(() => localStorage.getItem(BRAZIL_KEY) === "1");
+      Object.assign(C, brazilTheme ? C_BRAZIL : C_DEFAULT);
     
       useEffect(() => {
         if (unlocked) loadData().then(d => {
@@ -4099,7 +4132,7 @@
           {tab === "add"    && <AddTrip st={st} upd={upd} setTab={setTab} myId={myId} />}
           {tab === "saldos" && <Saldos  st={st} upd={upd} myId={myId} />}
           {tab === "extrato" && <Extrato st={st} upd={upd} myId={myId} />}
-          {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} />}
+          {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} brazilTheme={brazilTheme} onBrazilTheme={(v) => { localStorage.setItem(BRAZIL_KEY, v ? "1" : "0"); setBrazilTheme(v); }} />}
           <ProfileChip st={st} myId={myId} />
           <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} myId={myId} trips={st?.trips || []} />
         </div>
