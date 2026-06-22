@@ -868,8 +868,8 @@ const C_BRAZIL = {
   greenDim: "rgba(52,210,122,0.12)",
   red: "#EF5F5F",
   redDim: "rgba(239,95,95,0.12)",
-  blue: "#4080F5",
-  text: "#F0F5EC",
+  blue: "#3B7BF0",
+  text: "#FFFFFF",
   muted: "#6A9B7A",
   dim: "rgba(255,255,255,0.07)",
   nav: "#071A0B",
@@ -881,6 +881,8 @@ const BRAZIL_KEY = "caroninhas-grupo-brazil";
 //  GLOBAL CSS
 // ═══════════════════════════════════════════
 const GCSS = `@keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+  @keyframes goalDrop { from { opacity:0; transform:translateY(-80px) rotate(-180deg) scale(.4); } to { opacity:1; transform:translateY(0) rotate(0deg) scale(1); } }
+  @keyframes goalFadeIn { from { opacity:0; transform:scale(.8); } to { opacity:1; transform:scale(1); } }
 
   @import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=Barlow+Condensed:wght@600;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -977,6 +979,41 @@ function Toast({ msg, onDone }) {
       display: "flex", alignItems: "center", gap: 8,
     }}>
       ⚠️ {msg}
+    </div>
+  );
+}
+
+function GoalCelebration({ onDone }) {
+  const { useEffect } = React;
+  useEffect(() => { const t = setTimeout(onDone, 3500); return () => clearTimeout(t); }, []);
+  const balls = [0, 1, 2, 3, 4, 5];
+  return (
+    <div onClick={onDone} style={{
+      position: "fixed", inset: 0, zIndex: 9998,
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      background: "rgba(4,20,8,0.96)",
+    }}>
+      <div style={{ fontSize: 88, animation: "goalDrop .55s cubic-bezier(.17,.67,.42,1.4)" }}>⚽</div>
+      <div style={{
+        fontFamily: "'Barlow Condensed', sans-serif", fontSize: 60, fontWeight: 800,
+        color: "#FFDF00", letterSpacing: 5, marginTop: 10,
+        textShadow: "0 0 40px #FFDF0077",
+        animation: "goalFadeIn .4s .2s both",
+      }}>GOOOOL!</div>
+      <div style={{ fontSize: 48, marginTop: 6, animation: "goalFadeIn .4s .4s both" }}>🇧🇷</div>
+      <div style={{
+        color: "#FFFFFF", fontSize: 20, marginTop: 14, fontWeight: 700,
+        letterSpacing: 3, fontFamily: "'Barlow Condensed', sans-serif",
+        animation: "goalFadeIn .4s .6s both",
+      }}>HEXA É NOSSO!</div>
+      <div style={{ display: "flex", gap: 6, marginTop: 20 }}>
+        {balls.map(i => (
+          <span key={i} style={{ fontSize: 22, animation: `goalDrop .5s cubic-bezier(.17,.67,.42,1.4) ${.07 * i}s both` }}>⚽</span>
+        ))}
+      </div>
+      <div style={{ color: "#6A9B7A", fontSize: 11, marginTop: 28, fontFamily: "Barlow, sans-serif" }}>
+        toque para fechar
+      </div>
     </div>
   );
 }
@@ -3313,6 +3350,20 @@ function Opcoes({ st, upd, myId, onSignOut, brazilTheme, onBrazilTheme }) {
     setTimeout(() => setCcSaved(false), 2000);
   };
 
+  const [showGoal, setShowGoal] = useState(false);
+  const goalTaps = useRef(0);
+  const goalTimer = useRef(null);
+  const handleFlagTap = () => {
+    clearTimeout(goalTimer.current);
+    goalTaps.current++;
+    if (goalTaps.current >= 5) {
+      goalTaps.current = 0;
+      setShowGoal(true);
+    } else {
+      goalTimer.current = setTimeout(() => { goalTaps.current = 0; }, 700);
+    }
+  };
+
   const [showDanger, setShowDanger] = useState(false);
   const [dangerPass, setDangerPass] = useState("");
   const [dangerErr, setDangerErr] = useState(false);
@@ -3451,7 +3502,9 @@ function Opcoes({ st, upd, myId, onSignOut, brazilTheme, onBrazilTheme }) {
 
         {myId === ADMIN_ID && (
           <div style={{ ...cardS, borderColor: "#FFDF0033" }}>
-            <label style={{ ...lbl, color: "#FFDF00" }}>🇧🇷 {lang === "en" ? "World Cup Theme" : "Tema Copa do Mundo"}</label>
+            <label onClick={handleFlagTap} style={{ ...lbl, color: "#FFDF00", cursor: "default", userSelect: "none" }}>
+              🇧🇷 {lang === "en" ? "World Cup Theme" : "Tema Copa do Mundo"}
+            </label>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ fontSize: 13, color: C.muted, flex: 1 }}>
                 {lang === "en" ? "Brazil flag colors for the whole app" : "Cores da bandeira do Brasil em todo o app"}
@@ -3460,6 +3513,7 @@ function Opcoes({ st, upd, myId, onSignOut, brazilTheme, onBrazilTheme }) {
             </div>
           </div>
         )}
+        {showGoal && <GoalCelebration onDone={() => setShowGoal(false)} />}
 
         <div style={{ ...cardS, borderColor: "#7C5C2E55" }}>
           <label style={{ ...lbl, color: "#F5A623" }}>{t("opts_car_cost")}</label>
@@ -3678,7 +3732,7 @@ function ProfileChip({ st, myId }) {
   );
 }
 
-function Nav({ tab, setTab, lang, myId, trips }) {
+function Nav({ tab, setTab, lang, myId, trips, brazilTheme }) {
   const t = mkT(lang || "pt");
   const items = [
     { id: "home", icon: "🏠", label: t("nav_home") },
@@ -3716,10 +3770,17 @@ function Nav({ tab, setTab, lang, myId, trips }) {
     <div style={{
       position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
       width: "100%", maxWidth: 480,
-      background: C.nav, borderTop: `1px solid ${C.border}`,
-      display: "flex", zIndex: 100,
-      paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      background: C.nav, borderTop: brazilTheme ? "none" : `1px solid ${C.border}`,
+      display: "flex", flexDirection: "column", zIndex: 100,
     }}>
+      {brazilTheme && (
+        <div style={{ display: "flex", height: 4, flexShrink: 0 }}>
+          <div style={{ flex: 1, background: "#009C3B" }} />
+          <div style={{ flex: 1, background: "#FFDF00" }} />
+          <div style={{ flex: 1, background: "#002776" }} />
+        </div>
+      )}
+      <div style={{ display: "flex", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {items.map(item => (
         <button key={item.id} onClick={() => setTab(item.id)} style={{
           flex: 1, background: "none", border: "none",
@@ -3745,10 +3806,19 @@ function Nav({ tab, setTab, lang, myId, trips }) {
             {item.label}
           </div>
           {tab === item.id && (
-            <div style={{ width: 18, height: 2, borderRadius: 1, background: C.amber, position: "absolute", bottom: 4 }} />
+            brazilTheme ? (
+              <div style={{ display: "flex", width: 18, height: 2, position: "absolute", bottom: 4, borderRadius: 1, overflow: "hidden" }}>
+                <div style={{ flex: 1, background: "#009C3B" }} />
+                <div style={{ flex: 1, background: "#FFDF00" }} />
+                <div style={{ flex: 1, background: "#002776" }} />
+              </div>
+            ) : (
+              <div style={{ width: 18, height: 2, borderRadius: 1, background: C.amber, position: "absolute", bottom: 4 }} />
+            )
           )}
         </button>
       ))}
+      </div>
     </div>
   );
 }
@@ -4094,7 +4164,7 @@ export default function App() {
       {tab === "extrato" && <Extrato st={st} upd={upd} myId={myId} />}
       {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} brazilTheme={brazilTheme} onBrazilTheme={(v) => { localStorage.setItem(BRAZIL_KEY, v ? "1" : "0"); setBrazilTheme(v); }} />}
       <ProfileChip st={st} myId={myId} />
-      <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} myId={myId} trips={st?.trips || []} />
+      <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} myId={myId} trips={st?.trips || []} brazilTheme={brazilTheme} />
     </div>
   );
 }
