@@ -876,6 +876,20 @@ const C_BRAZIL = {
 };
 const C = { ...C_DEFAULT };
 const BRAZIL_KEY = "caroninhas-grupo-brazil";
+const CURIOSIDADES_COPA = [
+  "O Brasil é o único país a ter disputado TODAS as edições da Copa do Mundo, desde a primeira em 1930.",
+  "Pelé é o único jogador da história a ser tricampeão mundial — ganhou em 1958 (17 anos!), 1962 e 1970.",
+  "Jairzinho marcou gols em todos os 6 jogos do Brasil na Copa de 1970. Ninguém mais conseguiu essa façanha.",
+  "Ronaldo Fenômeno é o maior artilheiro da história das Copas: 15 gols em três edições (1994, 1998 e 2002).",
+  "O Brasil usa camisa amarela desde 1954. Antes jogava de branco — e perdeu de 2×1 para o Uruguai de branco em 1950.",
+  "No Maracanazo de 1950, o Brasil só precisava de um empate para ser campeão. Perdeu de 2×1 para o Uruguai diante de ~200 mil pessoas.",
+  "Garrincha foi rejeitado pelos psicólogos da seleção em 1958 por ter as pernas tortas. Virou bicampeão mundial mesmo assim.",
+  "Em 2014, em casa, o Brasil perdeu de 7×1 para a Alemanha — a maior goleada de uma semifinal na história das Copas.",
+  "O Brasil é o maior vencedor de Copas do Mundo: 5 títulos (1958, 1962, 1970, 1994 e 2002).",
+  "A seleção de 1970 é eleita por muitos como o melhor time de todos os tempos: Pelé, Tostão, Rivelino, Jairzinho e Gérson.",
+  "Zico, considerado por muitos o melhor jogador brasileiro pós-Pelé, nunca conquistou uma Copa do Mundo.",
+  "Na Copa de 2002, o Brasil venceu todos os 7 jogos e Ronaldo marcou 8 gols — incluindo os 2 da final contra a Alemanha.",
+];
 
 // ═══════════════════════════════════════════
 //  GLOBAL CSS
@@ -883,6 +897,7 @@ const BRAZIL_KEY = "caroninhas-grupo-brazil";
 const GCSS = `@keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
   @keyframes goalDrop { from { opacity:0; transform:translateY(-80px) rotate(-180deg) scale(.4); } to { opacity:1; transform:translateY(0) rotate(0deg) scale(1); } }
   @keyframes goalFadeIn { from { opacity:0; transform:scale(.8); } to { opacity:1; transform:scale(1); } }
+  @keyframes slideUp { from { transform:translateY(100%); opacity:.6; } to { transform:translateY(0); opacity:1; } }
 
   @import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=Barlow+Condensed:wght@600;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1629,6 +1644,14 @@ function Home({ st, upd, setTab, myId }) {
   const [editingPendingId, setEditingPendingId] = useState(null);
   const [pendingEdits, setPendingEdits] = useState({});  // tripId → {passengers, carGas, carToll, includeCarCost}
 
+  const [curiosityOpen, setCuriosityOpen] = useState(false);
+  const [curiosityIdx, setCuriosityIdx] = useState(0);
+  const openCuriosity = () => {
+    setCuriosityIdx(Math.floor(Math.random() * CURIOSIDADES_COPA.length));
+    setCuriosityOpen(true);
+  };
+  const nextCuriosity = () => setCuriosityIdx(i => (i + 1) % CURIOSIDADES_COPA.length);
+
   const startEditPending = (tr) => {
     setEditingPendingId(tr.id);
     const defCC = getCarCosts(st, myId);
@@ -1871,7 +1894,66 @@ function Home({ st, upd, setTab, myId }) {
             </button>
           </div>
         </div>
+        <div style={{ textAlign: "right", marginTop: 8 }}>
+          <button onClick={openCuriosity} title="Curiosidades da Copa" style={{
+            background: "none", border: "none", fontSize: 16, cursor: "pointer",
+            opacity: 0.4, padding: 0, lineHeight: 1, transition: "opacity .2s",
+          }} onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
+             onMouseLeave={e => e.currentTarget.style.opacity = "0.4"}>
+            ⚽
+          </button>
+        </div>
       </div>
+
+      {curiosityOpen && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9990,
+          background: "rgba(0,0,0,0.55)",
+          display: "flex", alignItems: "flex-end",
+        }} onClick={() => setCuriosityOpen(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: "100%", maxWidth: 480, margin: "0 auto",
+            background: C.card,
+            borderTop: `3px solid ${C.amber}`,
+            borderRadius: "18px 18px 0 0",
+            padding: "24px 22px 44px",
+            animation: "slideUp .28s ease",
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 18 }}>
+              <div style={{ fontSize: 36, marginBottom: 6 }}>⚽</div>
+              <div style={{ color: C.amber, fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: "uppercase" }}>
+                {lang === "en" ? "Did you know?" : "Você sabia?"}
+              </div>
+              <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>
+                {lang === "en" ? "Brazil & the World Cup" : "Brasil nas Copas do Mundo"}
+              </div>
+            </div>
+            <div style={{
+              fontSize: 15, color: C.text, lineHeight: 1.65,
+              textAlign: "center", marginBottom: 24,
+              fontFamily: "Barlow, sans-serif",
+            }}>
+              {CURIOSIDADES_COPA[curiosityIdx]}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={nextCuriosity} style={{
+                flex: 2, background: C.amberDim, border: `1px solid ${C.amber}44`,
+                color: C.amber, borderRadius: 10, padding: "12px 0",
+                fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif",
+              }}>
+                {lang === "en" ? "Next ›" : "Próxima ›"}
+              </button>
+              <button onClick={() => setCuriosityOpen(false)} style={{
+                flex: 1, background: C.dim, border: `1px solid ${C.border}`,
+                color: C.muted, borderRadius: 10, padding: "12px 0",
+                fontSize: 13, cursor: "pointer", fontFamily: "Barlow, sans-serif",
+              }}>
+                {lang === "en" ? "Close" : "Fechar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* CTA */}
