@@ -875,7 +875,6 @@ const C_BRAZIL = {
   nav: "#071A0B",
 };
 const C = { ...C_DEFAULT };
-const BRAZIL_KEY = "caroninhas-grupo-brazil";
 const CURIOSIDADES_COPA = [
   "O Brasil é o único país a ter disputado TODAS as edições da Copa do Mundo, desde a primeira em 1930.",
   "Pelé é o único jogador da história a ser tricampeão mundial — ganhou em 1958 (17 anos!), 1962 e 1970.",
@@ -4220,7 +4219,7 @@ export default function App() {
   });
   const [st, setSt] = useState(null);
   const [tab, setTab] = useState("home");
-  const [brazilTheme, setBrazilTheme] = useState(() => localStorage.getItem(BRAZIL_KEY) === "1");
+  const brazilTheme = !!st?.brazilTheme;
   Object.assign(C, brazilTheme ? C_BRAZIL : C_DEFAULT);
 
   useEffect(() => {
@@ -4261,7 +4260,7 @@ export default function App() {
       {tab === "add"    && <AddTrip st={st} upd={upd} setTab={setTab} myId={myId} />}
       {tab === "saldos" && <Saldos  st={st} upd={upd} myId={myId} />}
       {tab === "extrato" && <Extrato st={st} upd={upd} myId={myId} />}
-      {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} brazilTheme={brazilTheme} onBrazilTheme={(v) => { localStorage.setItem(BRAZIL_KEY, v ? "1" : "0"); setBrazilTheme(v); }} />}
+      {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} brazilTheme={brazilTheme} onBrazilTheme={(v) => upd({ ...st, brazilTheme: v })} />}
       <ProfileChip st={st} myId={myId} />
       <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} myId={myId} trips={st?.trips || []} brazilTheme={brazilTheme} />
     </div>
