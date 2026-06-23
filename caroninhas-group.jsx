@@ -1647,7 +1647,7 @@ function Home({ st, upd, setTab, myId }) {
   const [curiosityIdx, setCuriosityIdx] = useState(0);
   const [showGoalBall, setShowGoalBall] = useState(false);
   const [ballHidden, setBallHidden] = useState(false);
-  const [ballOpacity] = useState(() => Math.random() * 0.20);
+  const [ballOpacity] = useState(() => Math.random() * 0.15);
   const [ballPos] = useState(() => ({
     top: 18 + Math.random() * 55,
     left: 8 + Math.random() * 78,
@@ -1924,7 +1924,6 @@ function Home({ st, upd, setTab, myId }) {
           fontSize: 22, cursor: "pointer",
           opacity: ballOpacity,
           zIndex: 500, padding: 0, lineHeight: 1,
-          pointerEvents: ballOpacity < 0.03 ? "none" : "auto",
         }}>⚽</button>
       )}
 
