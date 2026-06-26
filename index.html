@@ -2615,7 +2615,19 @@
       const { driverNet, paxRecv, paxRecvd } = calcBalances(trips, myId);
       const dMap = Object.fromEntries(st.drivers.map(d => [d.id, d]));
     
-      const totalIOwePending    = Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.iOwe - dn.iOwePaid), 0);
+      // Passageiro trips with a non-group (custom) driver — driverId absent, driverName present
+      const avulsoDebtTrips = trips.filter(t =>
+        !t.pendingConfirmation &&
+        t.role === "passageiro" &&
+        t.registeredBy === myId &&
+        !t.driverId &&
+        t.driverName
+      ).sort((a, b) => b.date.localeCompare(a.date));
+      const avulsoIOwePending = avulsoDebtTrips
+        .filter(t => !t.paid && !t.settledByRide)
+        .reduce((s, t) => s + tripPrice(t) * (t.direction === "ambas" ? 2 : 1), 0);
+    
+      const totalIOwePending    = Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.iOwe - dn.iOwePaid), 0) + avulsoIOwePending;
       const totalTheyOwePending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.theyOwe - dn.theyOwePaid), 0);
     
       const markPaid    = (tripId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, paid: !t.paid } : t) });
@@ -2999,6 +3011,33 @@
                               )}
                             </div>
                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+    
+              {avulsoDebtTrips.some(t => !t.paid && !t.settledByRide) && (
+                <div>
+                  <SectionLabel>{lang === "pt" ? "Dívidas com motoristas avulsos" : "Non-group driver debts"}</SectionLabel>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {avulsoDebtTrips.filter(t => !t.paid && !t.settledByRide).map(tr => {
+                      const x = tr.direction === "ambas" ? 2 : 1;
+                      const amt = tripPrice(tr) * x;
+                      return (
+                        <div key={tr.id} style={{ ...cardS, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontSize: 14, color: C.text, fontWeight: 600 }}>{tr.driverName}</div>
+                            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                              <span style={{ color: C.amber, fontWeight: 600, marginRight: 4 }}>{weekday(tr.date, lang)}</span>
+                              {fmtFull(tr.date)} · {DIR(lang)[tr.direction]}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 700, color: C.red }}>−{R(amt)}</span>
+                            <button onClick={() => markPaid(tr.id)} style={btnGreen}>{t("extrato_pay")}</button>
+                          </div>
                         </div>
                       );
                     })}
