@@ -3973,11 +3973,12 @@ const PASS_CACHE  = "caroninhas-grupo-passwords-cache";
 
 // Pre-defined group drivers
 const GROUP_DRIVERS = [
-  { id: "d1", name: "Mário",   pix: "" },
-  { id: "d2", name: "Roberta", pix: "" },
-  { id: "d3", name: "Nice",    pix: "" },
-  { id: "d4", name: "Gabriel", pix: "" },
-  { id: "d5", name: "Rafael",  pix: "" },
+  { id: "d1", name: "Mário",        pix: "" },
+  { id: "d2", name: "Roberta",      pix: "" },
+  { id: "d3", name: "Nice",         pix: "" },
+  { id: "d4", name: "Gabriel",      pix: "" },
+  { id: "d5", name: "Rafael",       pix: "" },
+  { id: "d6", name: "João Miguel",  pix: "" },
 ];
 
 async function hashPassword(input) {
