@@ -857,46 +857,12 @@ const C_DEFAULT = {
   dim: "rgba(255,255,255,0.055)",
   nav: "#17151E",
 };
-const C_BRAZIL = {
-  bg: "#0A2C14",
-  card: "#0F2E1A",
-  card2: "#183D23",
-  border: "#1D5C32",
-  amber: "#FFDF00",
-  amberDim: "rgba(255,223,0,0.14)",
-  green: "#34D27A",
-  greenDim: "rgba(52,210,122,0.12)",
-  red: "#EF5F5F",
-  redDim: "rgba(239,95,95,0.12)",
-  blue: "#3B7BF0",
-  text: "#FFFFFF",
-  muted: "#6A9B7A",
-  dim: "rgba(255,255,255,0.07)",
-  nav: "#071A0B",
-};
 const C = { ...C_DEFAULT };
-const CURIOSIDADES_COPA = [
-  "O Brasil é o único país a ter disputado TODAS as edições da Copa do Mundo, desde a primeira em 1930.",
-  "Pelé é o único jogador da história a ser tricampeão mundial — ganhou em 1958 (17 anos!), 1962 e 1970.",
-  "Jairzinho marcou gols em todos os 6 jogos do Brasil na Copa de 1970. Ninguém mais conseguiu essa façanha.",
-  "Ronaldo Fenômeno é o maior artilheiro brasileiro de Copas do Mundo, com 15 gols. O recordista geral é o alemão Miroslav Klose, com 16.",
-  "O Brasil usa camisa amarela desde 1954. Antes jogava de branco — e perdeu de 2×1 para o Uruguai de branco em 1950.",
-  "No Maracanazo de 1950, o Brasil só precisava de um empate para ser campeão. Perdeu de 2×1 para o Uruguai diante de ~200 mil pessoas.",
-  "Garrincha foi rejeitado pelos psicólogos da seleção em 1958 por ter as pernas tortas. Virou bicampeão mundial mesmo assim.",
-  "Em 2014, em casa, o Brasil perdeu de 7×1 para a Alemanha — a maior goleada de uma semifinal na história das Copas.",
-  "O Brasil é o maior vencedor de Copas do Mundo: 5 títulos (1958, 1962, 1970, 1994 e 2002).",
-  "A seleção de 1970 é eleita por muitos como o melhor time de todos os tempos: Pelé, Tostão, Rivelino, Jairzinho e Gérson.",
-  "Zico, considerado por muitos o melhor jogador brasileiro pós-Pelé, nunca conquistou uma Copa do Mundo.",
-  "Na Copa de 2002, o Brasil venceu todos os 7 jogos e Ronaldo marcou 8 gols — incluindo os 2 da final contra a Alemanha.",
-];
 
 // ═══════════════════════════════════════════
 //  GLOBAL CSS
 // ═══════════════════════════════════════════
 const GCSS = `@keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
-  @keyframes goalDrop { from { opacity:0; transform:translateY(-80px) rotate(-180deg) scale(.4); } to { opacity:1; transform:translateY(0) rotate(0deg) scale(1); } }
-  @keyframes goalFadeIn { from { opacity:0; transform:scale(.8); } to { opacity:1; transform:scale(1); } }
-  @keyframes slideUp { from { transform:translateY(100%); opacity:.6; } to { transform:translateY(0); opacity:1; } }
 
   @import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=Barlow+Condensed:wght@600;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -993,41 +959,6 @@ function Toast({ msg, onDone }) {
       display: "flex", alignItems: "center", gap: 8,
     }}>
       ⚠️ {msg}
-    </div>
-  );
-}
-
-function GoalCelebration({ onDone }) {
-  const { useEffect } = React;
-  useEffect(() => { const t = setTimeout(onDone, 3500); return () => clearTimeout(t); }, []);
-  const balls = [0, 1, 2, 3, 4, 5];
-  return (
-    <div onClick={onDone} style={{
-      position: "fixed", inset: 0, zIndex: 9998,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      background: "rgba(4,20,8,0.96)",
-    }}>
-      <div style={{ fontSize: 88, animation: "goalDrop .55s cubic-bezier(.17,.67,.42,1.4)" }}>⚽</div>
-      <div style={{
-        fontFamily: "'Barlow Condensed', sans-serif", fontSize: 60, fontWeight: 800,
-        color: "#FFDF00", letterSpacing: 5, marginTop: 10,
-        textShadow: "0 0 40px #FFDF0077",
-        animation: "goalFadeIn .4s .2s both",
-      }}>GOOOOL!</div>
-      <div style={{ fontSize: 48, marginTop: 6, animation: "goalFadeIn .4s .4s both" }}>🇧🇷</div>
-      <div style={{
-        color: "#FFFFFF", fontSize: 20, marginTop: 14, fontWeight: 700,
-        letterSpacing: 3, fontFamily: "'Barlow Condensed', sans-serif",
-        animation: "goalFadeIn .4s .6s both",
-      }}>HEXA É NOSSO!</div>
-      <div style={{ display: "flex", gap: 6, marginTop: 20 }}>
-        {balls.map(i => (
-          <span key={i} style={{ fontSize: 22, animation: `goalDrop .5s cubic-bezier(.17,.67,.42,1.4) ${.07 * i}s both` }}>⚽</span>
-        ))}
-      </div>
-      <div style={{ color: "#6A9B7A", fontSize: 11, marginTop: 28, fontFamily: "Barlow, sans-serif" }}>
-        toque para fechar
-      </div>
     </div>
   );
 }
@@ -1643,34 +1574,6 @@ function Home({ st, upd, setTab, myId }) {
   const [editingPendingId, setEditingPendingId] = useState(null);
   const [pendingEdits, setPendingEdits] = useState({});  // tripId → {passengers, carGas, carToll, includeCarCost}
 
-  const [curiosityOpen, setCuriosityOpen] = useState(false);
-  const [curiosityIdx, setCuriosityIdx] = useState(0);
-  const [showGoalBall, setShowGoalBall] = useState(false);
-  const [ballHidden, setBallHidden] = useState(false);
-  const [ballOpacity] = useState(() => Math.random() * 0.15);
-  const [ballPos] = useState(() => ({
-    top: 18 + Math.random() * 55,
-    left: 8 + Math.random() * 78,
-  }));
-  const ballClicks = useRef(0);
-  const ballTimer = useRef(null);
-
-  const handleBallClick = () => {
-    clearTimeout(ballTimer.current);
-    ballClicks.current++;
-    if (ballClicks.current >= 3) {
-      ballClicks.current = 0;
-      setCuriosityIdx(Math.floor(Math.random() * CURIOSIDADES_COPA.length));
-      setCuriosityOpen(true);
-      setBallHidden(true);
-      return;
-    }
-    ballTimer.current = setTimeout(() => {
-      if (ballClicks.current === 1) setShowGoalBall(true);
-      ballClicks.current = 0;
-    }, 600);
-  };
-
   const startEditPending = (tr) => {
     setEditingPendingId(tr.id);
     const defCC = getCarCosts(st, myId);
@@ -1914,61 +1817,6 @@ function Home({ st, upd, setTab, myId }) {
           </div>
         </div>
       </div>
-
-      {!ballHidden && (
-        <button onClick={handleBallClick} style={{
-          position: "fixed",
-          top: `${ballPos.top}vh`,
-          left: `${ballPos.left}vw`,
-          background: "none", border: "none",
-          fontSize: 22, cursor: "pointer",
-          opacity: ballOpacity,
-          zIndex: 500, padding: 0, lineHeight: 1,
-        }}>⚽</button>
-      )}
-
-      {showGoalBall && <GoalCelebration onDone={() => setShowGoalBall(false)} />}
-
-      {curiosityOpen && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9990,
-          background: "rgba(0,0,0,0.55)",
-          display: "flex", alignItems: "flex-end",
-        }} onClick={() => setCuriosityOpen(false)}>
-          <div onClick={e => e.stopPropagation()} style={{
-            width: "100%", maxWidth: 480, margin: "0 auto",
-            background: C.card,
-            borderTop: `3px solid ${C.amber}`,
-            borderRadius: "18px 18px 0 0",
-            padding: "24px 22px 44px",
-            animation: "slideUp .28s ease",
-          }}>
-            <div style={{ textAlign: "center", marginBottom: 18 }}>
-              <div style={{ fontSize: 36, marginBottom: 6 }}>⚽</div>
-              <div style={{ color: C.amber, fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: "uppercase" }}>
-                {lang === "en" ? "Did you know?" : "Você sabia?"}
-              </div>
-              <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>
-                {lang === "en" ? "Brazil & the World Cup" : "Brasil nas Copas do Mundo"}
-              </div>
-            </div>
-            <div style={{
-              fontSize: 15, color: C.text, lineHeight: 1.65,
-              textAlign: "center", marginBottom: 24,
-              fontFamily: "Barlow, sans-serif",
-            }}>
-              {CURIOSIDADES_COPA[curiosityIdx]}
-            </div>
-            <button onClick={() => setCuriosityOpen(false)} style={{
-              width: "100%", background: C.dim, border: `1px solid ${C.border}`,
-              color: C.muted, borderRadius: 10, padding: "13px 0",
-              fontSize: 14, cursor: "pointer", fontFamily: "Barlow, sans-serif",
-            }}>
-              {lang === "en" ? "Close" : "Fechar"}
-            </button>
-          </div>
-        </div>
-      )}
 
       <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* CTA */}
@@ -3456,7 +3304,7 @@ function PixMaeCard({ st, upd, inp, lbl, cardS }) {
   );
 }
 
-function Opcoes({ st, upd, myId, onSignOut, brazilTheme, onBrazilTheme }) {
+function Opcoes({ st, upd, myId, onSignOut }) {
   const lang = st?.lang || "pt";
   const t = mkT(lang);
   const [drivers, setDrivers] = useState(st.drivers.length < 5
@@ -3484,20 +3332,6 @@ function Opcoes({ st, upd, myId, onSignOut, brazilTheme, onBrazilTheme }) {
     upd({ ...st, driverCarCosts: dcc });
     setCcSaved(true);
     setTimeout(() => setCcSaved(false), 2000);
-  };
-
-  const [showGoal, setShowGoal] = useState(false);
-  const goalTaps = useRef(0);
-  const goalTimer = useRef(null);
-  const handleFlagTap = () => {
-    clearTimeout(goalTimer.current);
-    goalTaps.current++;
-    if (goalTaps.current >= 5) {
-      goalTaps.current = 0;
-      setShowGoal(true);
-    } else {
-      goalTimer.current = setTimeout(() => { goalTaps.current = 0; }, 700);
-    }
   };
 
   const [showDanger, setShowDanger] = useState(false);
@@ -3635,21 +3469,6 @@ function Opcoes({ st, upd, myId, onSignOut, brazilTheme, onBrazilTheme }) {
         </div>
 
         {myId === ADMIN_ID && <PixMaeCard st={st} upd={upd} inp={inp} lbl={lbl} cardS={cardS} />}
-
-        {myId === ADMIN_ID && (
-          <div style={{ ...cardS, borderColor: "#FFDF0033" }}>
-            <label onClick={handleFlagTap} style={{ ...lbl, color: "#FFDF00", cursor: "default", userSelect: "none" }}>
-              🇧🇷 {lang === "en" ? "World Cup Theme" : "Tema Copa do Mundo"}
-            </label>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontSize: 13, color: C.muted, flex: 1 }}>
-                {lang === "en" ? "Brazil flag colors for the whole app" : "Cores da bandeira do Brasil em todo o app"}
-              </div>
-              <Toggle on={brazilTheme} onChange={onBrazilTheme} />
-            </div>
-          </div>
-        )}
-        {showGoal && <GoalCelebration onDone={() => setShowGoal(false)} />}
 
         <div style={{ ...cardS, borderColor: "#7C5C2E55" }}>
           <label style={{ ...lbl, color: "#F5A623" }}>{t("opts_car_cost")}</label>
@@ -3868,7 +3687,7 @@ function ProfileChip({ st, myId }) {
   );
 }
 
-function Nav({ tab, setTab, lang, myId, trips, brazilTheme }) {
+function Nav({ tab, setTab, lang, myId, trips }) {
   const t = mkT(lang || "pt");
   const items = [
     { id: "home", icon: "🏠", label: t("nav_home") },
@@ -3906,16 +3725,9 @@ function Nav({ tab, setTab, lang, myId, trips, brazilTheme }) {
     <div style={{
       position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
       width: "100%", maxWidth: 480,
-      background: C.nav, borderTop: brazilTheme ? "none" : `1px solid ${C.border}`,
+      background: C.nav, borderTop: `1px solid ${C.border}`,
       display: "flex", flexDirection: "column", zIndex: 100,
     }}>
-      {brazilTheme && (
-        <div style={{ display: "flex", height: 4, flexShrink: 0 }}>
-          <div style={{ flex: 1, background: "#009C3B" }} />
-          <div style={{ flex: 1, background: "#FFDF00" }} />
-          <div style={{ flex: 1, background: "#002776" }} />
-        </div>
-      )}
       <div style={{ display: "flex", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {items.map(item => (
         <button key={item.id} onClick={() => setTab(item.id)} style={{
@@ -3942,15 +3754,7 @@ function Nav({ tab, setTab, lang, myId, trips, brazilTheme }) {
             {item.label}
           </div>
           {tab === item.id && (
-            brazilTheme ? (
-              <div style={{ display: "flex", width: 18, height: 2, position: "absolute", bottom: 4, borderRadius: 1, overflow: "hidden" }}>
-                <div style={{ flex: 1, background: "#009C3B" }} />
-                <div style={{ flex: 1, background: "#FFDF00" }} />
-                <div style={{ flex: 1, background: "#002776" }} />
-              </div>
-            ) : (
-              <div style={{ width: 18, height: 2, borderRadius: 1, background: C.amber, position: "absolute", bottom: 4 }} />
-            )
+            <div style={{ width: 18, height: 2, borderRadius: 1, background: C.amber, position: "absolute", bottom: 4 }} />
           )}
         </button>
       ))}
@@ -4258,8 +4062,6 @@ export default function App() {
   });
   const [st, setSt] = useState(null);
   const [tab, setTab] = useState("home");
-  const brazilTheme = !!st?.brazilTheme;
-  Object.assign(C, brazilTheme ? C_BRAZIL : C_DEFAULT);
 
   useEffect(() => {
     if (unlocked) loadData().then(d => {
@@ -4299,9 +4101,9 @@ export default function App() {
       {tab === "add"    && <AddTrip st={st} upd={upd} setTab={setTab} myId={myId} />}
       {tab === "saldos" && <Saldos  st={st} upd={upd} myId={myId} />}
       {tab === "extrato" && <Extrato st={st} upd={upd} myId={myId} />}
-      {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} brazilTheme={brazilTheme} onBrazilTheme={(v) => upd({ ...st, brazilTheme: v })} />}
+      {tab === "opts"   && <Opcoes  st={st} upd={upd} myId={myId} onSignOut={() => { setMyId(null); setUnlocked(false); }} />}
       <ProfileChip st={st} myId={myId} />
-      <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} myId={myId} trips={st?.trips || []} brazilTheme={brazilTheme} />
+      <Nav tab={tab} setTab={setTab} lang={st?.lang || "pt"} myId={myId} trips={st?.trips || []} />
     </div>
   );
 }
