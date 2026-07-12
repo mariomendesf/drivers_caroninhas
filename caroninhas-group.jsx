@@ -149,7 +149,7 @@ const TR = {
     your_pix_ph: "Seu pix (opcional)",
     other_pix_ph: "CPF, e-mail, telefone...",
     car_cost_sub2: "Valores padrão ao registrar como motorista.",
-    price_per_stretch_label: (v) => `v4.5 · Preço por trecho: ${v}`,
+    price_per_stretch_label: (v) => `v4.6 · Preço por trecho: ${v}`,
     saldos_title: "Saldos",
     saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
     saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -218,7 +218,7 @@ const TR = {
     opts_delete_pass_ph: "Senha",
     opts_delete_wrong: "Senha incorreta",
     opts_delete_do: "Apagar tudo",
-    opts_version: "Caroninhas — Grupo v4.5",
+    opts_version: "Caroninhas — Grupo v4.6",
     opts_firebase_ok: "☁️ Firebase conectado",
     opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
     // Lock
@@ -659,6 +659,14 @@ function getCarCosts(st, dId) {
 function tripPrice(t) { return t.price ?? PRICE; }
 function paxPrice(p) { return p.price ?? PRICE; }
 function paxMult(p, tripDir) { const d = p.direction ?? tripDir; return d === "ambas" ? 2 : 1; }
+
+// Whether myId is a participant in trip t (as driver or as a group passenger)
+function isTripParticipant(t, myId) {
+  if (t.role === "passageiro") return t.registeredBy === myId || t.driverId === myId;
+  const effectiveDriver = t.driverOwnerId || t.registeredBy;
+  if (effectiveDriver === myId) return true;
+  return (t.passengers || []).some(p => p.driverId === myId);
+}
 
 // Cash actually paid/received (not pending — real money moved)
 function carCostTotal(t) {
@@ -1549,7 +1557,9 @@ function Home({ st, upd, setTab, myId }) {
   const { driverNet, paxRecv, paxRecvd } = calcBalances(weekTrips, myId);
   const totalOwed    = Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.iOwe - dn.iOwePaid), 0);
   const totalPending = (paxRecv - paxRecvd) + Object.values(driverNet).reduce((s, dn) => s + Math.max(0, dn.theyOwe - dn.theyOwePaid), 0);
-  const sorted = [...weekTrips].sort((a, b) => b.date.localeCompare(a.date)); // includes pending
+  // Non-admin drivers only see rides they take part in (as driver or as passenger); admin sees everything
+  const visibleTrips = myId === ADMIN_ID ? weekTrips : weekTrips.filter(t => isTripParticipant(t, myId));
+  const sorted = [...visibleTrips].sort((a, b) => b.date.localeCompare(a.date)); // includes pending
 
   // quitadoComCarona: any trip settled by ride this week
   const quitadoComCarona = weekTrips.some(t =>
@@ -1568,8 +1578,8 @@ function Home({ st, upd, setTab, myId }) {
   const thisWeekTrips = st.trips.filter(tr => tr.weekStart === thisWeek);
   const lastSeen = Number(localStorage.getItem(LAST_SEEN_KEY(myId)) || 0);
 
-  // Pending confirmations for me
-  const pendingTrips = st.trips.filter(tr => tr.pendingConfirmation && tr.driverOwnerId === myId);
+  // Pending confirmations for me (admin can also confirm on behalf of any driver)
+  const pendingTrips = st.trips.filter(tr => tr.pendingConfirmation && (tr.driverOwnerId === myId || myId === ADMIN_ID));
 
   const [editingPendingId, setEditingPendingId] = useState(null);
   const [pendingEdits, setPendingEdits] = useState({});  // tripId → {passengers, carGas, carToll, includeCarCost}
@@ -1592,7 +1602,7 @@ function Home({ st, upd, setTab, myId }) {
     const edit = pendingEdits[tripId];
     upd({ ...st, trips: st.trips.map(tr => {
       if (tr.id !== tripId) return tr;
-      const base = { ...tr, pendingConfirmation: false, registeredBy: myId, driverOwnerId: undefined };
+      const base = { ...tr, pendingConfirmation: false, registeredBy: tr.driverOwnerId || myId, driverOwnerId: undefined };
       if (edit) {
         const parsedPax = edit.passengers.map(p => ({
           ...p,
@@ -1605,7 +1615,7 @@ function Home({ st, upd, setTab, myId }) {
         const noteData = edit.note?.trim() ? { note: edit.note.trim(), notePublic: !!edit.notePublic } : {};
         return { ...base, passengers: parsedPax, ...(carCost ? { carCost } : {}), ...noteData };
       }
-      return { ...base, registeredBy: myId };
+      return base;
     })});
     setEditingPendingId(null);
   };
@@ -1704,12 +1714,12 @@ function Home({ st, upd, setTab, myId }) {
                           );
                         })}
 
-                        {/* Car cost section — only for the actual driver */}
-                        {tr.driverOwnerId === myId && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+                        {/* Car cost section — only for the actual driver (or admin confirming on their behalf) */}
+                        {(tr.driverOwnerId === myId || myId === ADMIN_ID) && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
                           <span style={{ fontSize: 13, color: C.text }}>⛽ {t("add_car_cost_later")}</span>
                           <Toggle on={edit.includeCarCost} onChange={v => setPendingEdits(prev => ({ ...prev, [tr.id]: { ...prev[tr.id], includeCarCost: v } }))} />
                         </div>}
-                        {edit.includeCarCost && tr.driverOwnerId === myId && (
+                        {edit.includeCarCost && (tr.driverOwnerId === myId || myId === ADMIN_ID) && (
                           <div style={{ display: "flex", gap: 8 }}>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{t("opts_fuel")}</div>
@@ -1807,7 +1817,7 @@ function Home({ st, upd, setTab, myId }) {
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             <div style={{ background: isCurrentWeek ? C.amber + "25" : C.amber + "18", border: `1px solid ${C.amber}${isCurrentWeek ? "66" : "44"}`, borderRadius: 20, padding: "5px 10px" }}>
               <span style={{ color: C.amber, fontSize: 12, fontWeight: 600 }}>
-                {t("home_trips_n", weekTrips.length)}
+                {t("home_trips_n", sorted.length)}
               </span>
             </div>
             <button onClick={() => setViewWeek(w => addWeeks(w, 1))} disabled={viewWeek >= maxWeek}
@@ -3452,20 +3462,40 @@ function Opcoes({ st, upd, myId, onSignOut }) {
           </button>
         </div>
 
-        {/* Group drivers list — read only, show pix */}
+        {/* Group drivers list — read only for everyone, admin can also edit/save their pix */}
         <div style={cardS}>
           <label style={lbl}>{t("drivers_group_label")}</label>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {drivers.filter(d => d.id !== myId).map(d => (
               <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.dim}` }}>
                 <div style={{ width: 28, height: 28, borderRadius: 8, background: C.dim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🚗</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{d.name}</div>
-                  {d.pix && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Pix: {d.pix}</div>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: myId === ADMIN_ID ? 6 : 0 }}>{d.name}</div>
+                  {myId === ADMIN_ID ? (
+                    <input
+                      value={d.pix || ""}
+                      onChange={e => setPix(drivers.findIndex(x => x.id === d.id), e.target.value)}
+                      placeholder={t("other_pix_ph")}
+                      style={{ ...inp, padding: "7px 10px", fontSize: 12 }}
+                    />
+                  ) : (
+                    d.pix && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Pix: {d.pix}</div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+          {myId === ADMIN_ID && (
+            <button onClick={save} style={{
+              marginTop: 12, background: saved ? C.greenDim : C.amberDim,
+              color: saved ? C.green : C.amber,
+              border: `1px solid ${saved ? C.green + "44" : C.amber + "44"}`,
+              borderRadius: 9, padding: "10px 0", fontSize: 14, fontWeight: 600,
+              cursor: "pointer", width: "100%", fontFamily: "Barlow, sans-serif",
+            }}>
+              {saved ? t("opts_saved") : t("opts_save_drivers")}
+            </button>
+          )}
         </div>
 
         {myId === ADMIN_ID && <PixMaeCard st={st} upd={upd} inp={inp} lbl={lbl} cardS={cardS} />}
@@ -3714,9 +3744,9 @@ function Nav({ tab, setTab, lang, myId, trips }) {
     )
   ).length;
 
-  // Also count pending confirmations for me
+  // Also count pending confirmations for me (admin sees pending confirmations for everyone)
   const pendingCount = (trips || []).filter(tr =>
-    tr.pendingConfirmation && tr.driverOwnerId === myId
+    tr.pendingConfirmation && (tr.driverOwnerId === myId || myId === ADMIN_ID)
   ).length;
 
   const totalBadge = badgeCount + pendingCount;
