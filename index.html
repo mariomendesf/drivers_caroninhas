@@ -51,6 +51,28 @@
     const DEF_TOLL = 35.20;
     const uid = () => Math.random().toString(36).slice(2, 9);
     const todayStr = () => new Date().toISOString().split("T")[0];
+    const TRIP_CUTOFF_HOUR = 19; // trips are considered "closed" for the day only at/after this hour
+    
+    const localDateStr = (d) => {
+      const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+    
+    // Latest date (YYYY-MM-DD, local) a non-admin driver may register their own trip for.
+    // Before TRIP_CUTOFF_HOUR, today's trip hasn't "closed" yet, so the limit is yesterday.
+    function maxRegistrableDate(now = new Date()) {
+      const cutoff = new Date(now);
+      cutoff.setHours(TRIP_CUTOFF_HOUR, 0, 0, 0);
+      const limit = new Date(now);
+      if (now < cutoff) limit.setDate(limit.getDate() - 1);
+      return localDateStr(limit);
+    }
+    
+    // A pending trip can only be confirmed by its driver from TRIP_CUTOFF_HOUR on the trip's own date.
+    function canConfirmTripNow(dateStr, now = new Date()) {
+      const cutoff = new Date(`${dateStr}T${String(TRIP_CUTOFF_HOUR).padStart(2, "0")}:00:00`);
+      return now >= cutoff;
+    }
     
     function getMonday(s) {
       const d = new Date(s + "T12:00:00");
@@ -123,6 +145,8 @@
         add_note: "Observação", add_note_ph: "Ex: carro diferente, saída atrasada…",
         add_chars_left: (n) => `${n} caracteres restantes`,
         add_save: "SALVAR", add_duplicate: "Já existe uma viagem nessa data.",
+        add_future_blocked: "Só é possível registrar viagens que já aconteceram. Hoje libera após as 19h.",
+        confirm_too_early: "Aguarde até as 19h do dia da viagem para confirmar.",
         // TripCard
         trip_driver: "Motorista", trip_passenger: "Carona",
         trip_edit_date: "Editar data", trip_save: "OK", trip_cancel: "✕",
@@ -189,7 +213,7 @@
         your_pix_ph: "Seu pix (opcional)",
         other_pix_ph: "CPF, e-mail, telefone...",
         car_cost_sub2: "Valores padrão ao registrar como motorista.",
-        price_per_stretch_label: (v) => `v4.6.1 · Preço por trecho: ${v}`,
+        price_per_stretch_label: (v) => `v4.7 · Preço por trecho: ${v}`,
         saldos_title: "Saldos",
         saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
         saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -258,7 +282,7 @@
         opts_delete_pass_ph: "Senha",
         opts_delete_wrong: "Senha incorreta",
         opts_delete_do: "Apagar tudo",
-        opts_version: "Caroninhas — Grupo v4.6.1",
+        opts_version: "Caroninhas — Grupo v4.7",
         opts_firebase_ok: "☁️ Firebase conectado",
         opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
         // Lock
@@ -368,6 +392,8 @@
         add_note: "Note", add_note_ph: "E.g. different car, late departure…",
         add_chars_left: (n) => `${n} characters left`,
         add_save: "SAVE", add_duplicate: "A trip already exists on this date.",
+        add_future_blocked: "You can only register trips that already happened. Today unlocks after 7pm.",
+        confirm_too_early: "Please wait until 7pm on the trip's day to confirm it.",
         trip_driver: "Driver", trip_passenger: "Passenger",
         trip_edit_date: "Edit date", trip_save: "OK", trip_cancel: "✕",
         trip_no_passengers: "No passengers",
@@ -1623,6 +1649,15 @@
     
       const [editingPendingId, setEditingPendingId] = useState(null);
       const [pendingEdits, setPendingEdits] = useState({});  // tripId → {passengers, carGas, carToll, includeCarCost}
+      const [confirmToast, setConfirmToast] = useState(null);
+    
+      const tryStartEditPending = (tr) => {
+        if (myId !== ADMIN_ID && !canConfirmTripNow(tr.date)) {
+          setConfirmToast(t("confirm_too_early"));
+          return;
+        }
+        startEditPending(tr);
+      };
     
       const startEditPending = (tr) => {
         setEditingPendingId(tr.id);
@@ -1639,6 +1674,11 @@
       };
     
       const confirmTrip = (tripId) => {
+        const target = st.trips.find(tr => tr.id === tripId);
+        if (target && myId !== ADMIN_ID && !canConfirmTripNow(target.date)) {
+          setConfirmToast(t("confirm_too_early"));
+          return;
+        }
         const edit = pendingEdits[tripId];
         upd({ ...st, trips: st.trips.map(tr => {
           if (tr.id !== tripId) return tr;
@@ -1702,7 +1742,7 @@
                             </div>
                           )}
                           <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={() => startEditPending(tr)} style={{ flex: 2, background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
+                            <button onClick={() => tryStartEditPending(tr)} style={{ flex: 2, background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
                               {t("edit_confirm_btn")}
                             </button>
                             <button onClick={() => rejectTrip(tr.id)} style={{ flex: 1, background: C.redDim, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 9, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>
@@ -1894,6 +1934,7 @@
               <EmptyState icon="🛣️" text={t("home_empty")} />
             )}
           </div>
+          {confirmToast && <Toast msg={confirmToast} onDone={() => setConfirmToast(null)} />}
         </div>
       );
     }
@@ -1905,7 +1946,7 @@
     function AddTrip({ st, upd, setTab, myId }) {
       const lang = st?.lang || "pt";
       const t = mkT(lang);
-      const [date, setDate] = useState(todayStr());
+      const [date, setDate] = useState(() => myId === ADMIN_ID ? todayStr() : maxRegistrableDate());
       const [dir, setDir] = useState("ambas");
       const [myDir, setMyDir] = useState("ambas"); // passageiro: my own stretch only
       const [role, setRole] = useState("motorista");
@@ -1963,6 +2004,15 @@
         : (pax.some(paxValid) || includeCarCost);
     
       const save = () => {
+        // Trips registered on behalf of another driver (pending confirmation) may be logged
+        // ahead of time or as they happen. All other trips (own trips) must already have
+        // happened — non-admin drivers can't log a future trip, and today only unlocks
+        // once it's actually over (past TRIP_CUTOFF_HOUR).
+        const isOnBehalfOfOther = (role === "passageiro" && !isCustomDriver && driverId) || (role === "motorista" && !!overrideDriver);
+        if (!isOnBehalfOfOther && myId !== ADMIN_ID && date > maxRegistrableDate()) {
+          setToast(t("add_future_blocked"));
+          return;
+        }
         // Build trip object
         let trip;
         if (role === "passageiro" && !isCustomDriver && driverId) {
@@ -2057,7 +2107,8 @@
             {/* Date */}
             <div style={cardS}>
               <label style={lbl}>{t("add_date")}</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp}
+                max={(((role === "passageiro" && !isCustomDriver && driverId) || (role === "motorista" && !!overrideDriver)) || myId === ADMIN_ID) ? undefined : maxRegistrableDate()} />
             </div>
     
     

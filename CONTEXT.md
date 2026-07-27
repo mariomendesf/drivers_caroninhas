@@ -8,7 +8,7 @@ App React de controle de caronas para um grupo fixo de 5 motoristas (Mário, Rob
 - **Arquivo único:** `caroninhas-group.jsx` → buildar para `index.html`
 - **Deploy:** GitHub Pages em `https://mariomendesf.github.io/drivers_caroninhas/`
 - **Firebase:** projeto `caroninhas-group`, credenciais já embutidas no `index.html`
-- **Versão atual:** v4.5
+- **Versão atual:** v4.7
 
 ## Como buildar
 O JSX **não é servido diretamente** — precisa ser embutido num skeleton HTML:
@@ -125,6 +125,7 @@ O skeleton HTML inclui: React 18, ReactDOM, Babel standalone, Firebase v9 compat
 - **Nota privada/pública:** `notePublic: false` (default) = só o `registeredBy` vê. `notePublic: true` = todos veem.
 - **Limite de passageiros:** max 4 por trecho (ida ou volta). Passageiro que registra conta como 1 em seu próprio trecho.
 - **Passageiros únicos:** cada motorista do grupo pode aparecer no máximo 1x como passageiro numa viagem. O motorista da viagem não pode ser adicionado como passageiro.
+- **Viagens só podem ser registradas após acontecerem (v4.7+):** motoristas não-admin não podem registrar viagem própria com data futura. `TRIP_CUTOFF_HOUR = 19` — o dia de hoje só libera para registro a partir das 19h local (`maxRegistrableDate()`); antes disso o limite é o dia anterior. ADMIN_ID é isento dessa regra. Viagens registradas em nome de outro motorista (`pendingConfirmation`) são isentas — podem ser registradas com antecedência ou durante o trajeto. Porém o motorista dono da viagem só pode **confirmar** essa viagem a partir das 19h do dia em que ela ocorreu (`canConfirmTripNow()`); antes disso, o botão de confirmar exibe um toast pedindo para aguardar. ADMIN_ID também é isento dessa restrição de confirmação.
 
 ## Permissões por perfil
 | Ação | Quem |
