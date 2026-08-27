@@ -88,6 +88,7 @@ O skeleton HTML inclui: React 18, ReactDOM, Babel standalone, Firebase v9 compat
     direction?,                    // trecho deste passageiro (override)
     settledByRide?,                // true | "partial" — quitado com crédito de carona
     paidByDebtor?,                 // true — devedor declarou que pagou (aguarda confirmação do credor)
+    paidByDebtorAt?,                // Date.now() de quando paidByDebtor foi setado (v4.8, auto-confirmação)
     paidRejected?,                 // true — credor rejeitou a declaração de pagamento
   }],
   carCost?: { gas, toll, paid },
@@ -110,6 +111,13 @@ O skeleton HTML inclui: React 18, ReactDOM, Babel standalone, Firebase v9 compat
   - Rejeitar → `p.paidByDebtor = false, p.paidRejected = true` → dívida volta para o devedor com label "⚠️ Não confirmado" em vermelho
 - **Assimetria intencional:** `theyOwePaid` do credor só sobe com `p.paid` (confirmação real), nunca com `paidByDebtor`.
 - Implementado em `TripCard` (lista de passageiros) e `Saldos` (seções iOweTrips e theyOweTrips).
+- `p.paidByDebtorAt` — timestamp (`Date.now()`) gravado quando `paxMarkPaidByDebtor`/`saldosPaxMarkPaidByDebtor` roda; usado pela auto-confirmação (v4.8).
+
+## Regras de confirmação pendente (v4.8+)
+- `hasPendingPaymentConfirmations(trips, myId)` — true se `myId` tem, em viagens que registrou (`registeredBy === myId`, `role === "motorista"`, não `pendingConfirmation`), algum passageiro com `paidByDebtor && !paid` (pagamento recebido aguardando confirmação dele).
+- **Bloqueia registro de nova viagem:** `AddTrip.save()` verifica `hasPendingPaymentConfirmations` primeiro; se true, mostra toast `add_blocked_pending_confirm` e não salva. O motorista precisa confirmar (✓ Recebi / Não recebi) os pagamentos pendentes antes de registrar outra viagem.
+- **Bloqueia quitação com crédito de carona:** em `Saldos`, `blockedFromSettling = hasPendingPaymentConfirmations(st.trips, myId)` desabilita `canSettle`/`canSettlePartial` e o próprio `handleSettleWithRide` (guard de segurança). Quando o motorista teria crédito suficiente mas está bloqueado, aparece o aviso `settle_blocked_pending_confirm` no lugar do botão.
+- **Auto-confirmação após 3 dias:** `autoConfirmStalePayments(trips)` (constante `AUTO_CONFIRM_PAYMENT_MS = 3 dias`) varre passageiros com `paidByDebtor && !paid && paidByDebtorAt` mais antigo que o limite e marca `paid: true` automaticamente. Rodado em `App` via `useEffect` (uma vez ao desbloquear + a cada 1h via `setInterval`), usando `setSt` funcional + `saveData` direto (não passa por `upd`). Pagamentos antigos sem `paidByDebtorAt` (dados pré-v4.8) não são auto-confirmados.
 
 ## Navegação de semanas (v4.5+)
 - A Home calcula `maxWeek = max(weekStart de todas as viagens, thisWeek)`.

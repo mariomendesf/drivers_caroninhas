@@ -106,6 +106,8 @@ const TR = {
     add_chars_left: (n) => `${n} caracteres restantes`,
     add_save: "SALVAR", add_duplicate: "Já existe uma viagem nessa data.",
     add_future_blocked: "Só é possível registrar viagens que já aconteceram. Hoje libera após as 19h.",
+    add_blocked_pending_confirm: "Confirme os pagamentos que você recebeu antes de registrar uma nova viagem.",
+    settle_blocked_pending_confirm: "Confirme os pagamentos recebidos para usar seus créditos",
     confirm_too_early: "Aguarde até as 19h do dia da viagem para confirmar.",
     // TripCard
     trip_driver: "Motorista", trip_passenger: "Carona",
@@ -173,7 +175,7 @@ const TR = {
     your_pix_ph: "Seu pix (opcional)",
     other_pix_ph: "CPF, e-mail, telefone...",
     car_cost_sub2: "Valores padrão ao registrar como motorista.",
-    price_per_stretch_label: (v) => `v4.7 · Preço por trecho: ${v}`,
+    price_per_stretch_label: (v) => `v4.8 · Preço por trecho: ${v}`,
     saldos_title: "Saldos",
     saldos_tab_balances: "💰 Saldos", saldos_tab_extratos: "📊 Extratos",
     saldos_this_week: "Esta semana", saldos_all: "Geral",
@@ -242,7 +244,7 @@ const TR = {
     opts_delete_pass_ph: "Senha",
     opts_delete_wrong: "Senha incorreta",
     opts_delete_do: "Apagar tudo",
-    opts_version: "Caroninhas — Grupo v4.7",
+    opts_version: "Caroninhas — Grupo v4.8",
     opts_firebase_ok: "☁️ Firebase conectado",
     opts_firebase_off: "⚠️ Firebase offline — dados só neste dispositivo",
     // Lock
@@ -353,6 +355,8 @@ const TR = {
     add_chars_left: (n) => `${n} characters left`,
     add_save: "SAVE", add_duplicate: "A trip already exists on this date.",
     add_future_blocked: "You can only register trips that already happened. Today unlocks after 7pm.",
+    add_blocked_pending_confirm: "Confirm the payments you've received before registering a new trip.",
+    settle_blocked_pending_confirm: "Confirm received payments to use your credits",
     confirm_too_early: "Please wait until 7pm on the trip's day to confirm it.",
     trip_driver: "Driver", trip_passenger: "Passenger",
     trip_edit_date: "Edit date", trip_save: "OK", trip_cancel: "✕",
@@ -418,7 +422,7 @@ const TR = {
     your_pix_ph: "Your pix (optional)",
     other_pix_ph: "CPF, email, phone...",
     car_cost_sub2: "Default values when registering as driver.",
-    price_per_stretch_label: (v) => `v4.0 · Price per stretch: ${v}`,
+    price_per_stretch_label: (v) => `v4.8 · Price per stretch: ${v}`,
     saldos_title: "Balances",
     saldos_tab_balances: "💰 Balances", saldos_tab_extratos: "📊 Finances",
     saldos_this_week: "This week", saldos_all: "All time",
@@ -487,7 +491,7 @@ const TR = {
     opts_delete_pass_ph: "Password",
     opts_delete_wrong: "Wrong password",
     opts_delete_do: "Delete everything",
-    opts_version: "Caroninhas Group v4.0",
+    opts_version: "Caroninhas Group v4.8",
     opts_firebase_ok: "☁️ Firebase connected",
     opts_firebase_off: "⚠️ Firebase offline — data only on this device",
     lock_subtitle: "Grupo de caronas",
@@ -785,6 +789,35 @@ function calcRideCredits(allTrips, myId) {
     });
   });
   return credits;
+}
+
+// Whether myId (as driver/creditor) has passenger payments marked "paid by debtor"
+// that are still awaiting myId's confirmation (paxConfirmReceived / paxRejectPayment).
+function hasPendingPaymentConfirmations(trips, myId) {
+  return trips.some(t =>
+    !t.pendingConfirmation &&
+    t.role === "motorista" &&
+    t.registeredBy === myId &&
+    (t.passengers || []).some(p => p.paidByDebtor && !p.paid)
+  );
+}
+
+// Payments marked "paid by debtor" and left unconfirmed for this long are
+// auto-confirmed, so a driver who forgets to confirm doesn't block themselves forever.
+const AUTO_CONFIRM_PAYMENT_MS = 3 * 24 * 60 * 60 * 1000;
+function autoConfirmStalePayments(trips) {
+  const cutoff = Date.now() - AUTO_CONFIRM_PAYMENT_MS;
+  let changed = false;
+  const next = trips.map(t => {
+    if (t.pendingConfirmation || t.role !== "motorista") return t;
+    const hasStale = (t.passengers || []).some(p => p.paidByDebtor && !p.paid && p.paidByDebtorAt && p.paidByDebtorAt <= cutoff);
+    if (!hasStale) return t;
+    changed = true;
+    return { ...t, passengers: t.passengers.map(p =>
+      (p.paidByDebtor && !p.paid && p.paidByDebtorAt && p.paidByDebtorAt <= cutoff) ? { ...p, paid: true } : p
+    )};
+  });
+  return changed ? next : null;
 }
 
 function calcCashFlow(allTrips, myId) {
@@ -1197,7 +1230,7 @@ function TripCard({ trip, st, upd, showDelete, weekDn, weekTrips, allTrips, read
   const deleteTrip = (e) => { e.stopPropagation(); const msg = lang === "en" ? "Delete this trip?" : "Apagar esta viagem?"; if (window.confirm(msg)) upd({ ...st, trips: st.trips.filter(t => t.id !== trip.id) }); };
   const togglePaid = () => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, paid: !t.paid } : t) });
   const togglePaxPaid = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: !p.paid } : p) } : t) });
-  const paxMarkPaidByDebtor = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: true, paidRejected: false } : p) } : t) });
+  const paxMarkPaidByDebtor = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: true, paidByDebtorAt: Date.now(), paidRejected: false } : p) } : t) });
   const paxConfirmReceived = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: true, paidByDebtor: true } : p) } : t) });
   const paxRejectPayment = (paxId) => upd({ ...st, trips: st.trips.map(t => t.id === trip.id ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: false, paidRejected: true } : p) } : t) });
   const saveDate = () => {
@@ -1964,6 +1997,12 @@ function AddTrip({ st, upd, setTab, myId }) {
     : (pax.some(paxValid) || includeCarCost);
 
   const save = () => {
+    // A driver with received payments still awaiting their confirmation must
+    // resolve those first before registering another trip.
+    if (hasPendingPaymentConfirmations(st.trips, myId)) {
+      setToast(t("add_blocked_pending_confirm"));
+      return;
+    }
     // Trips registered on behalf of another driver (pending confirmation) may be logged
     // ahead of time or as they happen. All other trips (own trips) must already have
     // happened — non-admin drivers can't log a future trip, and today only unlocks
@@ -2505,9 +2544,11 @@ function Saldos({ st, upd, myId, initialView }) {
 
   const markPaid    = (tripId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, paid: !t.paid } : t) });
   const markPaxPaid = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: !p.paid } : p) } : t) });
-  const saldosPaxMarkPaidByDebtor = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: true, paidRejected: false } : p) } : t) });
+  const saldosPaxMarkPaidByDebtor = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: true, paidByDebtorAt: Date.now(), paidRejected: false } : p) } : t) });
   const saldosPaxConfirmReceived  = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paid: true, paidByDebtor: true } : p) } : t) });
   const saldosPaxRejectPayment    = (tripId, paxId) => upd({ ...st, trips: st.trips.map(t => t.id === tripId ? { ...t, passengers: t.passengers.map(p => p.id === paxId ? { ...p, paidByDebtor: false, paidRejected: true } : p) } : t) });
+  // A driver sitting on unconfirmed received payments can't use their ride credits to settle debts.
+  const blockedFromSettling = hasPendingPaymentConfirmations(st.trips, myId);
 
   const cardS    = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 18px" };
   const btnGreen = { background: C.greenDim, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 7, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "Barlow, sans-serif", fontWeight: 600 };
@@ -2616,6 +2657,7 @@ function Saldos({ st, upd, myId, initialView }) {
                   // The credit source: dId's unresolved trips where they drove myId
                   // We consume those trips FIFO (oldest first)
                   const handleSettleWithRide = (debtTrip, debtPaxEntry) => {
+                    if (blockedFromSettling) return;
                     // debtTrip: the trip where dId drove myId and myId owes money
                     // We need to find which trips myId drove dId (creditor trips) and consume FIFO
                     const trechosNeeded = debtPaxEntry
@@ -2797,8 +2839,9 @@ function Saldos({ st, upd, myId, initialView }) {
                                 const myPaidRejected = myPaxEntry?.paidRejected;
                                 const isAwaitingConfirm = !myPaid && myPaidByDebtor;
                                 const trechosNeeded = myPaxEntry ? paxMult(myPaxEntry, tr.direction) : paxMult(tr, tr.direction);
-                                const canSettle = !isResolved && !isPartial && !isAwaitingConfirm && myCreditsWithDId >= 1;
-                                const canSettlePartial = !isResolved && !isPartial && !isAwaitingConfirm && myCreditsWithDId > 0 && myCreditsWithDId < trechosNeeded;
+                                const wouldSettle = !isResolved && !isPartial && !isAwaitingConfirm && myCreditsWithDId > 0;
+                                const canSettle = wouldSettle && !blockedFromSettling && myCreditsWithDId >= 1;
+                                const canSettlePartial = wouldSettle && !blockedFromSettling && myCreditsWithDId < trechosNeeded;
                                 const rowColor = (isResolved || isPartial || isAwaitingConfirm) ? C.muted : myPaidRejected ? C.red : C.text;
                                 return (
                                   <div key={tr.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.dim}` }}>
@@ -2815,6 +2858,7 @@ function Saldos({ st, upd, myId, initialView }) {
                                       {!isResolved && !isPartial && tr.role === "passageiro" && myPaid === false && !isAwaitingConfirm && <button onClick={() => markPaid(tr.id)} style={btnGreen}>{t("extrato_pay")}</button>}
                                       {!isResolved && !isPartial && myPaxEntry && !isAwaitingConfirm && <button onClick={() => saldosPaxMarkPaidByDebtor(tr.id, myPaxEntry.id)} style={{ background: C.amberDim, border: `1px solid ${C.amber}44`, color: C.amber, borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("pax_mark_paid")}</button>}
                                       {(canSettle || canSettlePartial) && <button onClick={() => handleSettleWithRide(tr, myPaxEntry || null)} style={{ background: C.dim, border: `1px solid ${C.border}`, color: C.muted, borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>{t("settle_with_ride")}</button>}
+                                      {wouldSettle && blockedFromSettling && <span style={{ fontSize: 10, color: C.muted, fontStyle: "italic", textAlign: "right" }}>{t("settle_blocked_pending_confirm")}</span>}
                                     </div>
                                   </div>
                                 );
@@ -4160,6 +4204,25 @@ export default function App() {
   }, [unlocked]);
 
   const upd = (newSt) => { setSt(newSt); saveData(newSt); };
+
+  // Payments awaiting confirmation for over AUTO_CONFIRM_PAYMENT_MS get auto-confirmed,
+  // so a forgetful driver doesn't stay blocked (see hasPendingPaymentConfirmations) forever.
+  useEffect(() => {
+    if (!unlocked) return;
+    const checkStalePayments = () => {
+      setSt(prev => {
+        if (!prev) return prev;
+        const updatedTrips = autoConfirmStalePayments(prev.trips);
+        if (!updatedTrips) return prev;
+        const next = { ...prev, trips: updatedTrips };
+        saveData(next);
+        return next;
+      });
+    };
+    checkStalePayments();
+    const iv = setInterval(checkStalePayments, 60 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, [unlocked]);
 
   const handleUnlock = (dId) => { setMyId(dId); setUnlocked(true); };
 
